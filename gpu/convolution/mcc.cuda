@@ -1,0 +1,91 @@
+extern "C" __global__ void convolution(
+        float const * const __restrict__ images_dev,
+        float const * const __restrict__ filter_dev,
+        float * const __restrict__ out_dev) {
+    float out_reg[32];
+    __shared__ float images_shr[4107];
+    __shared__ float filter_shr[4704];
+
+    const size_t blk_2 = ((int)blockIdx.x) / (2 * 7) % (7);
+    const size_t blk_3 = ((int)blockIdx.x) / (2) % (7);
+    const size_t blk_4 = ((int)blockIdx.x) % (2);
+    const size_t thr_2 = ((int)threadIdx.x) / (16 * 4) % (4);
+    const size_t thr_3 = ((int)threadIdx.x) / (16) % (4);
+    const size_t thr_4 = ((int)threadIdx.x) % (16);
+
+    for (size_t shr_2 = 0; shr_2 < 4; ++shr_2) {
+    for (size_t shr_4 = 0; shr_4 < 2; ++shr_4) {
+    #pragma unroll
+    for (size_t reg_3 = 0; reg_3 < 4; ++reg_3) {
+        out_reg[shr_2 * 8 + reg_3 * 2 + shr_4] = 0.0f;
+    }}}
+    
+    __syncthreads();
+    images_shr[((int)threadIdx.x) * 3] = images_dev[((((((int)blockIdx.x) / 14) * 22080) + ((((int)threadIdx.x) / 37) * 690)) + (((((int)blockIdx.x) % 14) >> 1) * 96)) + ((((int)threadIdx.x) % 37) * 3)];
+    images_shr[(((int)threadIdx.x) * 3) + 1] = images_dev[(((((((int)blockIdx.x) / 14) * 22080) + ((((int)threadIdx.x) / 37) * 690)) + (((((int)blockIdx.x) % 14) >> 1) * 96)) + ((((int)threadIdx.x) % 37) * 3)) + 1];
+    images_shr[(((int)threadIdx.x) * 3) + 2] = images_dev[(((((((int)blockIdx.x) / 14) * 22080) + ((((int)threadIdx.x) / 37) * 690)) + (((((int)blockIdx.x) % 14) >> 1) * 96)) + ((((int)threadIdx.x) % 37) * 3)) + 2];
+    images_shr[(((int)threadIdx.x) * 3) + 768] = images_dev[((((((int)blockIdx.x) / 14) * 22080) + (((((int)threadIdx.x) + 256) / 37) * 690)) + (((((int)blockIdx.x) % 14) >> 1) * 96)) + (((((int)threadIdx.x) + 34) % 37) * 3)];
+    images_shr[(((int)threadIdx.x) * 3) + 769] = images_dev[(((((((int)blockIdx.x) / 14) * 22080) + (((((int)threadIdx.x) + 256) / 37) * 690)) + (((((int)blockIdx.x) % 14) >> 1) * 96)) + (((((int)threadIdx.x) + 34) % 37) * 3)) + 1];
+    images_shr[(((int)threadIdx.x) * 3) + 770] = images_dev[(((((((int)blockIdx.x) / 14) * 22080) + (((((int)threadIdx.x) + 256) / 37) * 690)) + (((((int)blockIdx.x) % 14) >> 1) * 96)) + (((((int)threadIdx.x) + 34) % 37) * 3)) + 2];
+    images_shr[(((int)threadIdx.x) * 3) + 1536] = images_dev[((((((int)blockIdx.x) / 14) * 22080) + (((((int)threadIdx.x) + 512) / 37) * 690)) + (((((int)blockIdx.x) % 14) >> 1) * 96)) + (((((int)threadIdx.x) + 31) % 37) * 3)];
+    images_shr[(((int)threadIdx.x) * 3) + 1537] = images_dev[(((((((int)blockIdx.x) / 14) * 22080) + (((((int)threadIdx.x) + 512) / 37) * 690)) + (((((int)blockIdx.x) % 14) >> 1) * 96)) + (((((int)threadIdx.x) + 31) % 37) * 3)) + 1];
+    images_shr[(((int)threadIdx.x) * 3) + 1538] = images_dev[(((((((int)blockIdx.x) / 14) * 22080) + (((((int)threadIdx.x) + 512) / 37) * 690)) + (((((int)blockIdx.x) % 14) >> 1) * 96)) + (((((int)threadIdx.x) + 31) % 37) * 3)) + 2];
+    images_shr[(((int)threadIdx.x) * 3) + 2304] = images_dev[((((((int)blockIdx.x) / 14) * 22080) + (((((int)threadIdx.x) + 768) / 37) * 690)) + (((((int)blockIdx.x) % 14) >> 1) * 96)) + (((((int)threadIdx.x) + 28) % 37) * 3)];
+    images_shr[(((int)threadIdx.x) * 3) + 2305] = images_dev[(((((((int)blockIdx.x) / 14) * 22080) + (((((int)threadIdx.x) + 768) / 37) * 690)) + (((((int)blockIdx.x) % 14) >> 1) * 96)) + (((((int)threadIdx.x) + 28) % 37) * 3)) + 1];
+    images_shr[(((int)threadIdx.x) * 3) + 2306] = images_dev[(((((((int)blockIdx.x) / 14) * 22080) + (((((int)threadIdx.x) + 768) / 37) * 690)) + (((((int)blockIdx.x) % 14) >> 1) * 96)) + (((((int)threadIdx.x) + 28) % 37) * 3)) + 2];
+    images_shr[(((int)threadIdx.x) * 3) + 3072] = images_dev[((((((int)blockIdx.x) / 14) * 22080) + (((((int)threadIdx.x) + 1024) / 37) * 690)) + (((((int)blockIdx.x) % 14) >> 1) * 96)) + (((((int)threadIdx.x) + 25) % 37) * 3)];
+    images_shr[(((int)threadIdx.x) * 3) + 3073] = images_dev[(((((((int)blockIdx.x) / 14) * 22080) + (((((int)threadIdx.x) + 1024) / 37) * 690)) + (((((int)blockIdx.x) % 14) >> 1) * 96)) + (((((int)threadIdx.x) + 25) % 37) * 3)) + 1];
+    images_shr[(((int)threadIdx.x) * 3) + 3074] = images_dev[(((((((int)blockIdx.x) / 14) * 22080) + (((((int)threadIdx.x) + 1024) / 37) * 690)) + (((((int)blockIdx.x) % 14) >> 1) * 96)) + (((((int)threadIdx.x) + 25) % 37) * 3)) + 2];
+    if (((int)threadIdx.x) < 89) {
+        images_shr[(((int)threadIdx.x) * 3) + 3840] = images_dev[((((((int)blockIdx.x) / 14) * 22080) + (((((int)threadIdx.x) + 1280) / 37) * 690)) + (((((int)blockIdx.x) % 14) >> 1) * 96)) + (((((int)threadIdx.x) + 22) % 37) * 3)];
+        images_shr[(((int)threadIdx.x) * 3) + 3841] = images_dev[(((((((int)blockIdx.x) / 14) * 22080) + (((((int)threadIdx.x) + 1280) / 37) * 690)) + (((((int)blockIdx.x) % 14) >> 1) * 96)) + (((((int)threadIdx.x) + 22) % 37) * 3)) + 1];
+        images_shr[(((int)threadIdx.x) * 3) + 3842] = images_dev[(((((((int)blockIdx.x) / 14) * 22080) + (((((int)threadIdx.x) + 1280) / 37) * 690)) + (((((int)blockIdx.x) % 14) >> 1) * 96)) + (((((int)threadIdx.x) + 22) % 37) * 3)) + 2];
+    }
+    __syncthreads();
+    filter_shr[((int)threadIdx.x) * 3] = filter_dev[((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)];
+    filter_shr[(((int)threadIdx.x) * 3) + 1] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 1];
+    filter_shr[(((int)threadIdx.x) * 3) + 2] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 2];
+    filter_shr[(((int)threadIdx.x) * 3) + 768] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 768];
+    filter_shr[(((int)threadIdx.x) * 3) + 769] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 769];
+    filter_shr[(((int)threadIdx.x) * 3) + 770] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 770];
+    filter_shr[(((int)threadIdx.x) * 3) + 1536] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 1536];
+    filter_shr[(((int)threadIdx.x) * 3) + 1537] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 1537];
+    filter_shr[(((int)threadIdx.x) * 3) + 1538] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 1538];
+    filter_shr[(((int)threadIdx.x) * 3) + 2304] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 2304];
+    filter_shr[(((int)threadIdx.x) * 3) + 2305] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 2305];
+    filter_shr[(((int)threadIdx.x) * 3) + 2306] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 2306];
+    filter_shr[(((int)threadIdx.x) * 3) + 3072] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 3072];
+    filter_shr[(((int)threadIdx.x) * 3) + 3073] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 3073];
+    filter_shr[(((int)threadIdx.x) * 3) + 3074] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 3074];
+    filter_shr[(((int)threadIdx.x) * 3) + 3840] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 3840];
+    filter_shr[(((int)threadIdx.x) * 3) + 3841] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 3841];
+    filter_shr[(((int)threadIdx.x) * 3) + 3842] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 3842];
+    if (((int)threadIdx.x) < 32) {
+        filter_shr[(((int)threadIdx.x) * 3) + 4608] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 4608];
+        filter_shr[(((int)threadIdx.x) * 3) + 4609] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 4609];
+        filter_shr[(((int)threadIdx.x) * 3) + 4610] = filter_dev[(((((int)blockIdx.x) & 1) * 4704) + (((int)threadIdx.x) * 3)) + 4610];
+    }
+    __syncthreads();
+    
+    for (size_t shr_5 = 0; shr_5 < 3; ++shr_5) {
+    for (size_t shr_2 = 0; shr_2 < 4; ++shr_2) {
+    for (size_t shr_4 = 0; shr_4 < 2; ++shr_4) {
+    #pragma unroll
+    for (size_t reg_6 = 0; reg_6 < 7; ++reg_6) {
+    #pragma unroll
+    for (size_t reg_7 = 0; reg_7 < 7; ++reg_7) {
+    #pragma unroll
+    for (size_t reg_3 = 0; reg_3 < 4; ++reg_3) {
+        out_reg[shr_2 * 8 + reg_3 * 2 + shr_4] +=
+                images_shr[(thr_2 * 8 + shr_2 * 2 + reg_6) * 37 * 3 + (thr_3 * 8 + reg_3 * 2 + reg_7) * 3 + shr_5 ] *
+                filter_shr[(thr_4 * 2 + shr_4) * 7 * 7 * 3 + reg_6 * 7 * 3 + reg_7 * 3 + shr_5 ];
+    }}}}}}
+    
+    for (size_t shr_2 = 0; shr_2 < 4; ++shr_2) {
+    for (size_t reg_3 = 0; reg_3 < 4; ++reg_3) {
+    for (size_t shr_4 = 0; shr_4 < 2; ++shr_4) {
+        out_dev[(blk_2 * 16 + thr_2 * 4 + shr_2) * (112) * (64) + (blk_3 * 16 + thr_3 * 4 + reg_3) * (64) + (blk_4 * 32 + thr_4 * 2 + shr_4)] =
+                out_reg[shr_2 * 8 + reg_3 * 2 + shr_4];
+    }}}
+}
+

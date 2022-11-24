@@ -10,13 +10,6 @@ using namespace std;
 
 #define GPU_RUNS    100
 
-//#define SMALL       0
-//#define LONGINNER   0
-
-//#define WIDTH_A  4096//1024 //(1024+17)//1024 //1024//2048
-//#define HEIGHT_A 2048//1024 //(1024+19)//2048//2048//2048
-//#define WIDTH_B  2048//1024 //(1024+23)//4096//2048
-
 //    #define TILE     16//16
 //    #define Ty  16
 //    #define Tx  16
@@ -343,5 +336,5 @@ int main (int argc, char * argv[]) {
     const int WIDTH_B  = atoi(argv[3]);
 
     runAll<float, 16, 4> ( HEIGHT_A, WIDTH_A, WIDTH_B );
-    //runAll<double,16, 4> ( HEIGHT_A, WIDTH_A, WIDTH_B );
+    runAll<double,16, 4> ( HEIGHT_A, WIDTH_A, WIDTH_B );
 }

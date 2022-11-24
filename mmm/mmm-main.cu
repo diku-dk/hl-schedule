@@ -23,6 +23,14 @@ using namespace std;
 // Helpers
 /////////////////////////////////////////////////////////
 
+int gpuAssert(cudaError_t code) {
+  if(code != cudaSuccess) {
+    printf("GPU Error: %s\n", cudaGetErrorString(code));
+    return -1;
+  }
+  return 0;
+}
+
 int timeval_subtract(struct timeval *result, struct timeval *t2, struct timeval *t1)
 {
     unsigned int resolution=1000000;
@@ -83,6 +91,8 @@ __host__ void runNaive(  int height_A, int width_A, int width_B,
 
     // dry run
     mmmNaiveKer<T> <<< grid, block >>>(d_A, d_B, d_C, height_A, width_B, width_A);
+    cudaDeviceSynchronize();
+    gpuAssert( cudaPeekAtLastError() );
 
     unsigned long int elapsed;
     struct timeval t_start, t_end, t_diff;
@@ -92,6 +102,7 @@ __host__ void runNaive(  int height_A, int width_A, int width_B,
         mmmNaiveKer<T> <<< grid, block >>>(d_A, d_B, d_C, height_A, width_B, width_A);
     }
     cudaDeviceSynchronize();
+    gpuAssert( cudaPeekAtLastError() );
 
     gettimeofday(&t_end, NULL);
     timeval_subtract(&t_diff, &t_end, &t_start);
@@ -126,6 +137,7 @@ void runAsymetricBlkRegTile(
     { // one dry run
         mmmAsymBlkRegKer<T,TL> <<< grid, block >>>(d_A, d_B, d_C, HEIGHT_A, WIDTH_B, WIDTH_A); 
         cudaDeviceSynchronize();
+        gpuAssert( cudaPeekAtLastError() );
     }
     
     cudaMemset(d_C, 0, mem_size_C);
@@ -137,6 +149,7 @@ void runAsymetricBlkRegTile(
         mmmAsymBlkRegKer<T,TL> <<< grid, block >>>(d_A, d_B, d_C, HEIGHT_A, WIDTH_B, WIDTH_A); 
     }
     cudaDeviceSynchronize();
+    gpuAssert( cudaPeekAtLastError() );
 
     gettimeofday(&t_end, NULL);
     timeval_subtract(&t_diff, &t_end, &t_start);
@@ -175,6 +188,7 @@ void runSymetricBlkRegTileInnSeq(
     { // one dry run
         mmmSymBlkRegInnSeqKer<T,Ty,Ry,Tx,Rx,Tk> <<< grid, block >>>(d_A, d_B, d_C, HEIGHT_A, WIDTH_B, WIDTH_A); 
         cudaDeviceSynchronize();
+        gpuAssert( cudaPeekAtLastError() );
     }
 
     cudaMemset(d_C, 0, mem_size_C);
@@ -187,6 +201,7 @@ void runSymetricBlkRegTileInnSeq(
         mmmSymBlkRegInnSeqKer<T,Ty,Ry,Tx,Rx,Tk> <<< grid, block >>>(d_A, d_B, d_C, HEIGHT_A, WIDTH_B, WIDTH_A);
     }
     cudaDeviceSynchronize();
+    gpuAssert( cudaPeekAtLastError() );
 
     gettimeofday(&t_end, NULL);
     timeval_subtract(&t_diff, &t_end, &t_start);
@@ -233,6 +248,7 @@ void runSymetricBlkRegTileAllPar(
     { // one dry run
         mmmSymBlkRegAllParKer<T,Ty,Ry,Tx,Rx,Tk,Rk> <<< grid, block >>>(d_A, d_B, d_C, HEIGHT_A, WIDTH_B, WIDTH_A); 
         cudaDeviceSynchronize();
+        gpuAssert( cudaPeekAtLastError() );
     }
 
     cudaMemset(d_C, 0, mem_size_C);
@@ -246,6 +262,7 @@ void runSymetricBlkRegTileAllPar(
         mmmSymBlkRegAllParKer<T,Ty,Ry,Tx,Rx,Tk,Rk> <<< grid, block >>>(d_A, d_B, d_C, HEIGHT_A, WIDTH_B, WIDTH_A);
     }
     cudaDeviceSynchronize();
+    gpuAssert( cudaPeekAtLastError() );
 
     gettimeofday(&t_end, NULL);
     timeval_subtract(&t_diff, &t_end, &t_start);

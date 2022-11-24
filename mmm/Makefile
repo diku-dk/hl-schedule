@@ -2,8 +2,8 @@ CXX        = nvcc -O3 -arch=sm_60
 
 #-arch=sm_60
 
-SRC = mmm-main.cu
-HELPERS = mmm-kernels.cu.h
+SRC = main.cu
+HELPERS = kernels.cu.h
 EXECUTABLE =mmm
 
 default: compile run

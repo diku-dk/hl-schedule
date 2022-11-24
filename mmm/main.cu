@@ -4,73 +4,14 @@
 #include <sys/time.h>
 #include <time.h> 
 
-#include "mmm-kernels.cu.h"
+#include "../helper.h"
+#include "goldenSeq.h"
+#include "kernels.cu.h"
 
 using namespace std;
 
 #define GPU_RUNS    100
-
-//    #define TILE     16//16
-//    #define Ty  16
-//    #define Tx  16
-//    #define Ry  4
-//    #define Rx  4
-//    #define Tk  16
-//    #define Rk  16 //32
-
-
-/////////////////////////////////////////////////////////
-// Helpers
-/////////////////////////////////////////////////////////
-
-int gpuAssert(cudaError_t code) {
-  if(code != cudaSuccess) {
-    printf("GPU Error: %s\n", cudaGetErrorString(code));
-    return -1;
-  }
-  return 0;
-}
-
-int timeval_subtract(struct timeval *result, struct timeval *t2, struct timeval *t1)
-{
-    unsigned int resolution=1000000;
-    long int diff = (t2->tv_usec + resolution * t2->tv_sec) - (t1->tv_usec + resolution * t1->tv_sec);
-    result->tv_sec = diff / resolution;
-    result->tv_usec = diff % resolution;
-    return (diff<0);
-}
-
-template<class T>
-void randomInit(T* data, int size) {
-    for (int i = 0; i < size; ++i)
-        data[i] = (T) ( rand() / (float)RAND_MAX );
-}
-
-
-template<class T>
-void matMult(T* A, T* B, T* C, int colsA, int rowsA, int colsB) {
-  for(int i = 0; i < rowsA; i++) {
-    for(int j = 0; j < colsB; j++) {
-      float sum = 0.0;
-      for(int k = 0; k < colsA; k++) {
-        sum += A[i*colsA + k] * B[k * colsB + j];
-      }
-      C[i * colsB + j] = sum;
-    }
-  } 
-}
-
-template<class T>
-bool validate(T* A, T* B, unsigned int sizeAB){
-    for(int i = 0; i < sizeAB; i++)
-      if (fabs(A[i] - B[i]) > 0.02) { //0.0007){
-        printf("INVALID RESULT %d %f %f\n", i, A[i], B[i]);
-        return false;
-      }
-    printf("VALID RESULT!\n");
-    return true;
-}
-
+#define ERR         0.02
 
 // naive kernel, i.e., the only tiling performed is on the grid;
 //   no shared or private memory is used.
@@ -164,7 +105,7 @@ void runAsymetricBlkRegTile(
     // copy result from device to host
     cudaMemcpy(h_C, d_C, mem_size_C, cudaMemcpyDeviceToHost);
        
-    validate<T>(ref_C, h_C, size_C);
+    validate<T>(ref_C, h_C, size_C, ERR);
     free(h_C);
 }
 
@@ -217,7 +158,7 @@ void runSymetricBlkRegTileInnSeq(
 
     // copy result from device to host and validate
     cudaMemcpy(h_C, d_C, mem_size_C, cudaMemcpyDeviceToHost);
-    validate<T>(ref_C, h_C, size_C);
+    validate<T>(ref_C, h_C, size_C, ERR);
     free(h_C);
 }
 
@@ -278,7 +219,7 @@ void runSymetricBlkRegTileAllPar(
 
     // copy result from device to host and validate
     cudaMemcpy(h_C, d_C, mem_size_C, cudaMemcpyDeviceToHost);
-    validate<T>(ref_C, h_C, size_C);
+    validate<T>(ref_C, h_C, size_C, ERR);
     free(h_C);
 }
 

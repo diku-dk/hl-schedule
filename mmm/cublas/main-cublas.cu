@@ -12,10 +12,6 @@
 
 #define GPU_RUNS 100
 
-#define HEIGHT_A 2048//1024 //(1024+19)//2048//2048//2048
-#define WIDTH_A  4096//1024 //(1024+17)//1024 //1024//2048
-#define WIDTH_B  2048//1024 //(1024+23)//4096//2048
-
 int timeval_subtract(struct timeval *result, struct timeval *t2, struct timeval *t1)
 {
     unsigned int resolution=1000000;
@@ -77,7 +73,7 @@ void gpu_blas_mmul_rep(const float *A, const float *B, float *C, const int m, co
       elapsed = (t_diff.tv_sec*1e6+t_diff.tv_usec) / GPU_RUNS; 
 
       float microsecPerMatrixMul = elapsed; 
-      double flopsPerMatrixMul = 2.0 * HEIGHT_A * WIDTH_B * WIDTH_A;
+      double flopsPerMatrixMul = 2.0 * m * k * n;
       double gigaFlops = (flopsPerMatrixMul * 1.0e-3f) / microsecPerMatrixMul; 
 
       printf("CUBLAS version runs in: %lu microsecs, GFlops/sec: %f\n", elapsed, gigaFlops);
@@ -86,7 +82,16 @@ void gpu_blas_mmul_rep(const float *A, const float *B, float *C, const int m, co
      cublasDestroy(handle);
 }
 
-int main() {
+
+int main (int argc, char * argv[]) {
+    if (argc != 4) {
+        printf("Usage: %s heiht-A width-A width-B\n", argv[0]);
+        exit(1);
+    }
+    const int HEIGHT_A = atoi(argv[1]);
+    const int WIDTH_A  = atoi(argv[2]);
+    const int WIDTH_B  = atoi(argv[3]);
+
      // Allocate 3 arrays on CPU
      int nr_rows_A, nr_cols_A, nr_rows_B, nr_cols_B, nr_rows_C, nr_cols_C;
  

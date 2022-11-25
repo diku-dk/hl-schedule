@@ -26,8 +26,8 @@ int timeval_subtract(struct timeval *result, struct timeval *t2, struct timeval 
 
 template<class T>
 void randomInit(T* data, int size) {
-    for (int i = 0; i < size; ++i)
-        data[i] = (T) ( rand() / (float)RAND_MAX );
+    for (int i = 0; i < size; i++)
+        data[i] = rand() / (T)RAND_MAX;
 }
 
 /**
@@ -36,9 +36,9 @@ void randomInit(T* data, int size) {
  * 
  */
 template<class T>
-void randomInitWithNaNs(T* data, const T spec_val, int size, float frac) {
-    for (int i = 0; i < size; ++i) {
-        float r = rand() / (float)RAND_MAX;
+void randomInitWithNaNs(T* data, const T spec_val, int size, T frac) {
+    for (int i = 0; i < size; i++) {
+        T r = rand() / (T)RAND_MAX;
         data[i] = (r >= frac) ? (T)r : spec_val;
     }
 }

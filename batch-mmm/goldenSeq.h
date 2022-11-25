@@ -1,4 +1,5 @@
-#include <math.h>
+#ifndef GOLDEN
+#define GOLDEN
 
 /**
  * This is a special kind of batch matrix multiplication, in
@@ -25,7 +26,7 @@ void goldenSeq(T* A, T* B, T* X, T* Y, const int M, const int K1, const int K2, 
                 for(int q=0; q<N; q++) { // reduction
                     float a = A[j1*N + q];
                     float b = B[q*K2 + j2];
-                    if( ! isnan( X[i*N + q] ) ) {
+                    if( X[i*N + q] != SPEC_NAN ) {
                         acc += a*b;
                     }
                 }
@@ -35,3 +36,4 @@ void goldenSeq(T* A, T* B, T* X, T* Y, const int M, const int K1, const int K2, 
     }
 }
 
+#endif

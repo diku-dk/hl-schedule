@@ -98,7 +98,7 @@ void bmmmTiledKer ( ElTp* A,      ElTp* B
     __syncthreads();
   }
 
-  //#pragma unroll
+  #pragma unroll
   for(int s=0; s<R; s++) {
     const int ips = i + s;
     if(ips < M && j1 < K1 && j2 < K2)

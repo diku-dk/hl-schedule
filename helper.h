@@ -1,3 +1,12 @@
+#ifndef HELPER
+#define HELPER
+
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/time.h>
+#include <time.h>
+
 int gpuAssert(cudaError_t code) {
   if(code != cudaSuccess) {
     printf("GPU Error: %s\n", cudaGetErrorString(code));
@@ -21,6 +30,19 @@ void randomInit(T* data, int size) {
         data[i] = (T) ( rand() / (float)RAND_MAX );
 }
 
+/**
+ * Initialize the `data` array, which has `size` elements:
+ * frac% of them are NaNs and (1-frac)% are random values.
+ * 
+ */
+template<class T>
+void randomInitWithNaNs(T* data, const T spec_val, int size, float frac) {
+    for (int i = 0; i < size; ++i) {
+        float r = rand() / (float)RAND_MAX;
+        data[i] = (r >= frac) ? (T)r : spec_val;
+    }
+}
+
 // error for matmul: 0.02
 template<class T>
 bool validate(T* A, T* B, unsigned int sizeAB, const T err){
@@ -32,3 +54,5 @@ bool validate(T* A, T* B, unsigned int sizeAB, const T err){
     printf("VALID RESULT!\n");
     return true;
 }
+
+#endif

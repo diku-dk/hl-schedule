@@ -1,9 +1,3 @@
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <time.h> 
-
 #include "../helper.h"
 #include "goldenSeq.h"
 #include "kernels.cu.h"

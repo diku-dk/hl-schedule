@@ -5,7 +5,7 @@
 using namespace std;
 
 #define GPU_RUNS    100
-#define ERR         0.0001
+#define ERR         0.00001
 
 /**
  * Naive kernel: the only tiling performed is on the grid;
@@ -102,7 +102,6 @@ void runTiled ( T* d_A, T* d_B
     bmmmTiledKer<T, TZ, TL, TR><<< grid, block >>>(d_A, d_B, d_X_tr, d_Y, M, K1, K2, N);
     cudaDeviceSynchronize();
     gpuAssert( cudaPeekAtLastError() );
-    printf("After dry-run execution terminates; TZ: %d, TL: %d, TR: %d, (dimx,dimy,dimz):(%d,%d,%d)!\n", TZ, TL, TR, dimx,dimy,dimz);
 
     unsigned long int elapsed;
     struct timeval t_start, t_end, t_diff;
@@ -213,6 +212,6 @@ int main (int argc, char * argv[]) {
     const int K2 = atoi(argv[3]);
     const int N  = atoi(argv[4]);
 
-    runAll<float, 2, 8, 24> ( M, K1, K2, N );
+    runAll<float, 2, 8, 30> ( M, K1, K2, N );
     //runAll<double,2, 8, 30> ( M, K1, K2, N );
 }

@@ -5,7 +5,7 @@
 using namespace std;
 
 #define GPU_RUNS    100
-#define ERR         0.00001
+#define ERR         0.0001
 
 /**
  * Naive kernel: the only tiling performed is on the grid;

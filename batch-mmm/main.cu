@@ -5,7 +5,7 @@
 using namespace std;
 
 #define GPU_RUNS    100
-#define ERR         0.0001
+#define ERR         0.00012
 
 /**
  * Naive kernel: the only tiling performed is on the grid;
@@ -130,6 +130,58 @@ void runTiled ( T* d_A, T* d_B
     free(h_Y);
 }
 
+template< typename T, int TL, int TR> __host__
+void runTiledS( T* d_A, T* d_B
+              , T* d_X, T* d_X_tr
+              , T* ref_Y, T* d_Y
+              , const int M, const int K1
+              , const int K2, const int N
+) {
+    unsigned long long size_Y = M*K1*K2;
+    unsigned long long mem_size_Y = size_Y * sizeof(T);
+    cudaMemset (d_Y, 0, mem_size_Y );
+
+    // setup execution parameters
+    const int  dimz = (M  + TR - 1) / TR;
+    const int  dimy = (K1 + TL - 1) / TL;
+    const int  dimx = (K2 + TL - 1) / TL;
+
+    dim3 block(TL, TL, 1);
+    dim3 grid (dimx, dimy, dimz);
+
+    // dry run
+    runTranspose<T,32>(d_X, d_X_tr, M, N);
+    bmmmTiledSKer<T, TL, TR><<< grid, block, TR*sizeof(T) >>>(d_A, d_B, d_X_tr, d_Y, M, K1, K2, N);
+    cudaDeviceSynchronize();
+    gpuAssert( cudaPeekAtLastError() );
+
+    unsigned long int elapsed;
+    struct timeval t_start, t_end, t_diff;
+    gettimeofday(&t_start, NULL); 
+    
+    for(int i=0; i<GPU_RUNS; i++) {
+        //runTranspose<T, 32>(d_X, d_X_tr, M, N);
+        bmmmTiledSKer<T, TL, TR><<< grid, block, TR*sizeof(T) >>>(d_A, d_B, d_X_tr, d_Y, M, K1, K2, N);
+    }
+    cudaDeviceSynchronize();
+    gpuAssert( cudaPeekAtLastError() );
+
+    gettimeofday(&t_end, NULL);
+    timeval_subtract(&t_diff, &t_end, &t_start);
+    elapsed = (t_diff.tv_sec*1e6+t_diff.tv_usec) / GPU_RUNS;
+
+    float  microsecPerMatrixMul = elapsed; 
+    double flopsPerMatrixMul = 3.0 * M * K1 * K2 * N; // 3.0 or 4.0 ?
+    double gigaFlops = (flopsPerMatrixMul * 1.0e-3f) / microsecPerMatrixMul; 
+
+    printf("GPU RegTiled BMMM simple version runs in: %lu microsecs, GFlops/sec: %.2f\n", elapsed, gigaFlops);
+
+    T* h_Y = (T*) malloc(mem_size_Y);
+    cudaMemcpy(h_Y, d_Y, mem_size_Y, cudaMemcpyDeviceToHost);
+    validate<T>(ref_Y, h_Y, size_Y, ERR);
+    free(h_Y);
+}
+
 /**
  * This will run all code versions
  * (and summarize the performance in GFlops). 
@@ -187,6 +239,9 @@ void runAll ( const int M, const int K1
     // 7. compute the register-tiled version
     runTiled<T, TZ, TL, TR>(d_A, d_B, d_X, d_X_tr, h_Y, d_Y, M, K1, K2, N);
 
+    // 8. compute the simple register-tiled version (blockDim.z == 1)
+    runTiledS<T, TL, TR>(d_A, d_B, d_X, d_X_tr, h_Y, d_Y, M, K1, K2, N);
+
     free(h_A);
     free(h_B);
     free(h_X);
@@ -212,6 +267,6 @@ int main (int argc, char * argv[]) {
     const int K2 = atoi(argv[3]);
     const int N  = atoi(argv[4]);
 
-    runAll<float, 2, 8, 29> ( M, K1, K2, N );
-    runAll<double,2, 8, 29> ( M, K1, K2, N );
+    runAll<float, 2, 8, 24> ( M, K1, K2, N );
+    runAll<double,2, 8, 24> ( M, K1, K2, N );
 }

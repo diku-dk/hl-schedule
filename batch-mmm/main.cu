@@ -5,7 +5,7 @@
 using namespace std;
 
 #define GPU_RUNS    100
-#define ERR         0.00012
+#define ERR         0.0001
 
 /**
  * Naive kernel: the only tiling performed is on the grid;
@@ -99,7 +99,7 @@ void runTiled ( T* d_A, T* d_B
 
     // dry run
     runTranspose<T,32>(d_X, d_X_tr, M, N);
-    bmmmTiledKer<T, TZ, TL, TR><<< grid, block >>>(d_A, d_B, d_X_tr, d_Y, M, K1, K2, N);
+    bmmmTiledKer<T, TZ, TL, TR><<< grid, block, TZ*TR*sizeof(T) >>>(d_A, d_B, d_X_tr, d_Y, M, K1, K2, N);
     cudaDeviceSynchronize();
     gpuAssert( cudaPeekAtLastError() );
 
@@ -109,7 +109,7 @@ void runTiled ( T* d_A, T* d_B
     
     for(int i=0; i<GPU_RUNS; i++) {
         runTranspose<T, 32>(d_X, d_X_tr, M, N);
-        bmmmTiledKer<T, TZ, TL, TR><<< grid, block >>>(d_A, d_B, d_X_tr, d_Y, M, K1, K2, N);
+        bmmmTiledKer<T, TZ, TL, TR><<< grid, block, TZ*TR*sizeof(T) >>>(d_A, d_B, d_X_tr, d_Y, M, K1, K2, N);
     }
     cudaDeviceSynchronize();
     gpuAssert( cudaPeekAtLastError() );
@@ -212,6 +212,6 @@ int main (int argc, char * argv[]) {
     const int K2 = atoi(argv[3]);
     const int N  = atoi(argv[4]);
 
-    runAll<float, 2, 8, 30> ( M, K1, K2, N );
-    runAll<double,2, 8, 30> ( M, K1, K2, N );
+    runAll<float, 2, 8, 29> ( M, K1, K2, N );
+    runAll<double,2, 8, 29> ( M, K1, K2, N );
 }

@@ -47,7 +47,9 @@ void bmmmTiledKer ( ElTp* A,      ElTp* B
                   , const int M,  const int K1
                   , const int K2, const int N
 ) {
-  __shared__ ElTp Xsh_tr[Z][R];
+  extern __shared__ char sh_mem[];
+  volatile ElTp* Xsh_tr = (ElTp*)sh_mem;
+  //__shared__ ElTp Xsh_tr[Z][R];
   ElTp acc[R];
 
   const int ii  = blockIdx.z * blockDim.z;
@@ -77,11 +79,12 @@ void bmmmTiledKer ( ElTp* A,      ElTp* B
     ElTp x = SPEC_NAN;
     
     if(i < M && flat_thid < R) {
-      x = X_tr[q*M + i];
+      x = X_tr[q*M + i + flat_thid];
     }
 
     if(flat_thid < R) {
-      Xsh_tr[threadIdx.z][flat_thid] = x;
+      //Xsh_tr[threadIdx.z][flat_thid] = x;
+      Xsh_tr[threadIdx.z*R + flat_thid] = x;
     }
     __syncthreads();
 
@@ -91,7 +94,8 @@ void bmmmTiledKer ( ElTp* A,      ElTp* B
       ElTp v = 1.0 - (Xsh_tr[threadIdx.z][s] == SPEC_NAN);
       acc[s] += ab * v;
 #else
-      if(Xsh_tr[threadIdx.z][s] != SPEC_NAN)
+      //if(Xsh_tr[threadIdx.z][s] != SPEC_NAN)
+      if(Xsh_tr[threadIdx.z*R + s] != SPEC_NAN)
         acc[s] += ab;
 #endif
     }

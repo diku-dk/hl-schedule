@@ -26,9 +26,11 @@ void goldenSeq(T* A, T* B, char* X, T* Y, const int M, const int K1, const int K
                 for(int q=0; q<N; q++) { // reduction
                     float a = A[j1*N + q];
                     float b = B[q*K2 + j2];
+                    float v = 0.0;
                     if( X[i*N + q] != 0 ) {
-                        acc += a*b;
+                        v = 1.0;
                     }
+                    acc += a*b*v;
                 }
                 Y[i*K1*K2 + j1*K2 + j2] = acc;
             }

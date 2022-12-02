@@ -1,8 +1,6 @@
 #ifndef BMMM_KERNELS
 #define BMMM_KERNELS
 
-#define SPEC_NAN 33333333.3333
-
 /**
  * We use ElTp for the (generic) array-element type,
  * and T for the generic tile size.
@@ -10,7 +8,7 @@
 
 template <class ElTp> __global__ 
 void bmmmNaiveKer ( ElTp* A, ElTp* B
-                  , ElTp* X, ElTp* Y
+                  , char* X, ElTp* Y
                   , const int M,  const int K1
                   , const int K2, const int N
 ) {
@@ -25,11 +23,13 @@ void bmmmNaiveKer ( ElTp* A, ElTp* B
   ElTp acc = 0.0f;
 
   for(int q=0; q<N; q++) { // reduction
-    if( X[i*N + q] != SPEC_NAN) {
-      ElTp a = A[j1*N + q];
-      ElTp b = B[q*K2 + j2];
-      acc += a*b;
+    float v = 0.0;
+    if( X[i*N + q] != 0 ) {
+      v = 1.0;
     }
+    ElTp a = A[j1*N + q];
+    ElTp b = B[q*K2 + j2];
+    acc += a*b*v;
   }
   Y[i*K1*K2 + j1*K2 + j2] = acc;
 }
@@ -43,21 +43,21 @@ void bmmmNaiveKer ( ElTp* A, ElTp* B
  */
 template <class ElTp, int Z, int T, int R> __global__
 void bmmmTiledKer ( ElTp* A,      ElTp* B
-                  , ElTp* X_tr,   ElTp* Y
+                  , char* X_tr,   ElTp* Y
                   , const int M,  const int K1
                   , const int K2, const int N
 ) {
   extern __shared__ char sh_mem[];
-  volatile ElTp* Xsh_tr = (ElTp*)sh_mem;
+  volatile char* Xsh_tr = (char*)sh_mem;
   //__shared__ ElTp Xsh_tr[Z][R];
   ElTp acc[R];
 
   const int ii  = blockIdx.z * blockDim.z;
-  const int jj1 = blockIdx.y * blockDim.y;
-  const int jj2 = blockIdx.x * blockDim.x;
-  const int j1  = jj1 + threadIdx.y;
-  const int j2  = jj2 + threadIdx.x;
   const int i   = (ii  + threadIdx.z) * R;
+  const int jj1 = blockIdx.y * blockDim.y;
+  const int j1  = jj1 + threadIdx.y;
+  const int jj2 = blockIdx.x * blockDim.x;
+  const int j2  = jj2 + threadIdx.x;
   const int flat_thid = threadIdx.y * blockDim.x + threadIdx.x;
 
   #pragma unroll
@@ -76,7 +76,7 @@ void bmmmTiledKer ( ElTp* A,      ElTp* B
     ElTp ab = a*b;
 
     // collectively read R elements from X_tr
-    ElTp x = SPEC_NAN;
+    char x = 0;
     
     if(i < M && flat_thid < R) {
       x = X_tr[q*M + i + flat_thid];
@@ -90,92 +90,11 @@ void bmmmTiledKer ( ElTp* A,      ElTp* B
 
     #pragma unroll
     for(int s=0; s<R; s++) {
-#if 0
-      ElTp v = 1.0 - (Xsh_tr[threadIdx.z][s] == SPEC_NAN);
+
+      float v = 1;
+      if(Xsh_tr[threadIdx.z*R + s] == 0)
+        v = 0;
       acc[s] += ab * v;
-#else
-      //if(Xsh_tr[threadIdx.z][s] != SPEC_NAN)
-      if(Xsh_tr[threadIdx.z*R + s] != SPEC_NAN)
-        acc[s] += ab;
-#endif
-    }
-    __syncthreads();
-  }
-
-  #pragma unroll
-  for(int s=0; s<R; s++) {
-    const int ips = i + s;
-    if(ips < M && j1 < K1 && j2 < K2)
-      Y[ips*K1*K2 + j1*K2 + j2] = acc[s];
-  }
-}
-
-
-/**
- * Array dimensions are as in goldenSeq;
- * X_t is the transposed on X: [N][M]ElTp.
- * Assumes:
- *    (1) blockDim.y * blockDim.x >= R
- *    (2) blockDim.x == blockDim.y == T
- */
-template <class ElTp, int T, int R> __global__
-void bmmmTiledSKer( ElTp* A,      ElTp* B
-                  , ElTp* X_tr,   ElTp* Y
-                  , const int M,  const int K1
-                  , const int K2, const int N
-) {
-  extern __shared__ char sh_mem[];
-  volatile ElTp* Xsh_tr = (ElTp*)sh_mem;
-  //__shared__ ElTp Xsh_tr[Z][R];
-  ElTp acc[R];
-
-  const int ii  = blockIdx.z;
-  const int jj1 = blockIdx.y * T;
-  const int jj2 = blockIdx.x * T;
-  const int j1  = jj1 + threadIdx.y;
-  const int j2  = jj2 + threadIdx.x;
-  const int i   = ii * R;
-  const int flat_thid = threadIdx.y * T + threadIdx.x;
-
-  #pragma unroll
-  for(int s=0; s<R; s++)
-    acc[s] = 0;
-
-  for(int q=0; q<N; q++) {
-
-    // collectively read R elements from X_tr
-    ElTp x = SPEC_NAN;
-    
-    if(i < M && flat_thid < R) {
-      x = X_tr[q*M + i + flat_thid];
-    }
-
-    if(flat_thid < R) {
-      //Xsh_tr[threadIdx.z][flat_thid] = x;
-      Xsh_tr[flat_thid] = x;
-    }
-
-    // read A and B to registers.
-    ElTp a = 0, b = 0;
-    if(j1 < K1)
-      a = A[j1*N + q];
-    if(j2 < K2)
-      b = B[q*K2 + j2];
-
-    ElTp ab = a*b;
-
-    __syncthreads();
-
-    #pragma unroll
-    for(int s=0; s<R; s++) {
-#if 0
-      ElTp v = 1.0 - (Xsh_tr[s] == SPEC_NAN);
-      acc[s] += ab * v;
-#else
-      //if(Xsh_tr[threadIdx.z][s] != SPEC_NAN)
-      if(Xsh_tr[s] != SPEC_NAN)
-        acc[s] += ab;
-#endif
     }
     __syncthreads();
   }
@@ -213,4 +132,77 @@ __global__ void matTransposeTiledKer(ElTp* A, ElTp* A_tr, const int heightA, con
       A_tr[y*heightA + x] = tile[threadIdx.x][threadIdx.y];
 }
 
+
+/**
+ * Array dimensions are as in goldenSeq;
+ * X_t is the transposed on X: [N][M]ElTp.
+ * Assumes:
+ *    (1) blockDim.y * blockDim.x >= R
+ *    (2) blockDim.x == blockDim.y == T
+ */
+template <class ElTp, int T, int R> __global__
+void bmmmTiledSKer( ElTp* A,      ElTp* B
+                  , char* X_tr,   ElTp* Y
+                  , const int M,  const int K1
+                  , const int K2, const int N
+) {
+  extern __shared__ char sh_mem[];
+  volatile char* Xsh_tr = (char*)sh_mem;
+  //__shared__ ElTp Xsh_tr[Z][R];
+  ElTp acc[R];
+
+  const int ii  = blockIdx.z;
+  const int jj1 = blockIdx.y * T;
+  const int jj2 = blockIdx.x * T;
+  const int j1  = jj1 + threadIdx.y;
+  const int j2  = jj2 + threadIdx.x;
+  const int i   = ii * R;
+  const int flat_thid = threadIdx.y * T + threadIdx.x;
+
+  #pragma unroll
+  for(int s=0; s<R; s++)
+    acc[s] = 0;
+
+  for(int q=0; q<N; q++) {
+
+    // collectively read R elements from X_tr
+    char x = 0;
+    
+    if(i < M && flat_thid < R) {
+      x = X_tr[q*M + i + flat_thid];
+    }
+
+    if(flat_thid < R) {
+      //Xsh_tr[threadIdx.z][flat_thid] = x;
+      Xsh_tr[flat_thid] = x;
+    }
+
+    // read A and B to registers.
+    ElTp a = 0, b = 0;
+    if(j1 < K1)
+      a = A[j1*N + q];
+    if(j2 < K2)
+      b = B[q*K2 + j2];
+
+    ElTp ab = a*b;
+
+    __syncthreads();
+
+    #pragma unroll
+    for(int s=0; s<R; s++) {
+      ElTp v = 1;
+      if(Xsh_tr[s] == 0)
+        v = 0;
+      acc[s] += ab * v;
+    }
+    __syncthreads();
+  }
+
+  #pragma unroll
+  for(int s=0; s<R; s++) {
+    const int ips = i + s;
+    if(ips < M && j1 < K1 && j2 < K2)
+      Y[ips*K1*K2 + j1*K2 + j2] = acc[s];
+  }
+}
 #endif

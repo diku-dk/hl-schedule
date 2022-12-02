@@ -35,11 +35,10 @@ void randomInit(T* data, int size) {
  * frac% of them are NaNs and (1-frac)% are random values.
  * 
  */
-template<class T>
-void randomInitWithNaNs(T* data, const T spec_val, int size, T frac) {
+void randomMask(char* data, int size, float frac) {
     for (int i = 0; i < size; i++) {
-        T r = rand() / (T)RAND_MAX;
-        data[i] = (r >= frac) ? (T)r : spec_val;
+        float r = rand() / (float)RAND_MAX;
+        data[i] = (r >= frac) ? 1 : 0;
     }
 }
 

@@ -4,7 +4,7 @@
 
 using namespace std;
 
-#define GPU_RUNS    100
+#define GPU_RUNS    200
 #define ERR         0.00012
 
 /**
@@ -21,7 +21,7 @@ using namespace std;
  * TZ is the block size on the Z dimension.
  */
 template< typename T, int TZ, int TL> __host__
-void runNaive ( T* d_A, T* d_B, T* d_X
+void runNaive ( T* d_A, T* d_B, char* d_X
               , T* ref_Y, T* d_Y
               , const int M, const int K1
               , const int K2, const int N
@@ -80,7 +80,7 @@ void runTranspose(T* d_A, T* d_A_tr, const int heightA, const int widthA) {
 
 template< typename T, int TZ, int TL, int TR> __host__
 void runTiled ( T* d_A, T* d_B
-              , T* d_X, T* d_X_tr
+              , char* d_X, char* d_X_tr
               , T* ref_Y, T* d_Y
               , const int M, const int K1
               , const int K2, const int N
@@ -98,8 +98,8 @@ void runTiled ( T* d_A, T* d_B
     dim3 grid (dimx, dimy, dimz);
 
     // dry run
-    runTranspose<T,32>(d_X, d_X_tr, M, N);
-    bmmmTiledKer<T, TZ, TL, TR><<< grid, block, TZ*TR*sizeof(T) >>>(d_A, d_B, d_X_tr, d_Y, M, K1, K2, N);
+    runTranspose<char,32>(d_X, d_X_tr, M, N);
+    bmmmTiledKer<T, TZ, TL, TR><<< grid, block, TZ*TR*sizeof(char) >>>(d_A, d_B, d_X_tr, d_Y, M, K1, K2, N);
     cudaDeviceSynchronize();
     gpuAssert( cudaPeekAtLastError() );
 
@@ -108,8 +108,8 @@ void runTiled ( T* d_A, T* d_B
     gettimeofday(&t_start, NULL); 
     
     for(int i=0; i<GPU_RUNS; i++) {
-        runTranspose<T, 32>(d_X, d_X_tr, M, N);
-        bmmmTiledKer<T, TZ, TL, TR><<< grid, block, TZ*TR*sizeof(T) >>>(d_A, d_B, d_X_tr, d_Y, M, K1, K2, N);
+        runTranspose<char, 32>(d_X, d_X_tr, M, N);
+        bmmmTiledKer<T, TZ, TL, TR><<< grid, block, TZ*TR*sizeof(char) >>>(d_A, d_B, d_X_tr, d_Y, M, K1, K2, N);
     }
     cudaDeviceSynchronize();
     gpuAssert( cudaPeekAtLastError() );
@@ -119,7 +119,7 @@ void runTiled ( T* d_A, T* d_B
     elapsed = (t_diff.tv_sec*1e6+t_diff.tv_usec) / GPU_RUNS;
 
     float  microsecPerMatrixMul = elapsed; 
-    double flopsPerMatrixMul = 3.0 * M * K1 * K2 * N; // 3.0 or 4.0 ?
+    double flopsPerMatrixMul = 3.0 * M * K1 * K2 * N;
     double gigaFlops = (flopsPerMatrixMul * 1.0e-3f) / microsecPerMatrixMul; 
 
     printf("GPU RegTiled BMMM version runs in: %lu microsecs, GFlops/sec: %.2f\n", elapsed, gigaFlops);
@@ -130,9 +130,10 @@ void runTiled ( T* d_A, T* d_B
     free(h_Y);
 }
 
+#if 0
 template< typename T, int TL, int TR> __host__
 void runTiledS( T* d_A, T* d_B
-              , T* d_X, T* d_X_tr
+              , char* d_X, char* d_X_tr
               , T* ref_Y, T* d_Y
               , const int M, const int K1
               , const int K2, const int N
@@ -150,37 +151,38 @@ void runTiledS( T* d_A, T* d_B
     dim3 grid (dimx, dimy, dimz);
 
     // dry run
-    runTranspose<T,32>(d_X, d_X_tr, M, N);
+    runTranspose<char,32>(d_X, d_X_tr, M, N);
     bmmmTiledSKer<T, TL, TR><<< grid, block, TR*sizeof(T) >>>(d_A, d_B, d_X_tr, d_Y, M, K1, K2, N);
     cudaDeviceSynchronize();
     gpuAssert( cudaPeekAtLastError() );
 
-    unsigned long int elapsed;
+    double elapsed;
     struct timeval t_start, t_end, t_diff;
     gettimeofday(&t_start, NULL); 
     
     for(int i=0; i<GPU_RUNS; i++) {
-        //runTranspose<T, 32>(d_X, d_X_tr, M, N);
+        runTranspose<char, 32>(d_X, d_X_tr, M, N);
         bmmmTiledSKer<T, TL, TR><<< grid, block, TR*sizeof(T) >>>(d_A, d_B, d_X_tr, d_Y, M, K1, K2, N);
     }
     cudaDeviceSynchronize();
-    gpuAssert( cudaPeekAtLastError() );
 
     gettimeofday(&t_end, NULL);
     timeval_subtract(&t_diff, &t_end, &t_start);
     elapsed = (t_diff.tv_sec*1e6+t_diff.tv_usec) / GPU_RUNS;
 
-    float  microsecPerMatrixMul = elapsed; 
+    double  microsecPerMatrixMul = elapsed;
     double flopsPerMatrixMul = 3.0 * M * K1 * K2 * N; // 3.0 or 4.0 ?
     double gigaFlops = (flopsPerMatrixMul * 1.0e-3f) / microsecPerMatrixMul; 
 
-    printf("GPU RegTiled BMMM simple version runs in: %lu microsecs, GFlops/sec: %.2f\n", elapsed, gigaFlops);
+    gpuAssert( cudaPeekAtLastError() );
+    printf("GPU RegTiled BMMM simple version runs in: %.1f microsecs, GFlops/sec: %.2f\n", elapsed, gigaFlops);
 
     T* h_Y = (T*) malloc(mem_size_Y);
     cudaMemcpy(h_Y, d_Y, mem_size_Y, cudaMemcpyDeviceToHost);
     validate<T>(ref_Y, h_Y, size_Y, ERR);
     free(h_Y);
 }
+#endif
 
 /**
  * This will run all code versions
@@ -203,8 +205,8 @@ void runAll ( const int M, const int K1
     T* h_B = (T*) malloc(mem_size_B);
 
     unsigned long long size_X = M * N;
-    unsigned long long mem_size_X = sizeof(T) * size_X;
-    T* h_X = (T*) malloc(mem_size_X);
+    unsigned long long mem_size_X = sizeof(char) * size_X;
+    char* h_X = (char*) malloc(mem_size_X);
 
     unsigned long long size_Y = M * K1 * K2;
     unsigned long long mem_size_Y = sizeof(T) * size_Y;
@@ -213,10 +215,11 @@ void runAll ( const int M, const int K1
     // 2. initialize input arrays in host memory
     randomInit<T>(h_A, size_A);
     randomInit<T>(h_B, size_B);
-    randomInitWithNaNs<T>(h_X, SPEC_NAN, size_X, 0.1);
+    randomMask(h_X, size_X, 0.1);
     
     // 3. allocate device memory
-    T *d_A, *d_B, *d_X, *d_X_tr, *d_Y;
+    T *d_A, *d_B, *d_Y;
+    char *d_X, *d_X_tr;
     cudaMalloc((void**) &d_A,    mem_size_A);
     cudaMalloc((void**) &d_B,    mem_size_B);
     cudaMalloc((void**) &d_X,    mem_size_X);
@@ -239,8 +242,10 @@ void runAll ( const int M, const int K1
     // 7. compute the register-tiled version
     runTiled<T, TZ, TL, TR>(d_A, d_B, d_X, d_X_tr, h_Y, d_Y, M, K1, K2, N);
 
+#if 0
     // 8. compute the simple register-tiled version (blockDim.z == 1)
     runTiledS<T, TL, TR>(d_A, d_B, d_X, d_X_tr, h_Y, d_Y, M, K1, K2, N);
+#endif
 
     free(h_A);
     free(h_B);
@@ -267,6 +272,6 @@ int main (int argc, char * argv[]) {
     const int K2 = atoi(argv[3]);
     const int N  = atoi(argv[4]);
 
-    runAll<float, 2, 8, 24> ( M, K1, K2, N );
-    runAll<double,2, 8, 24> ( M, K1, K2, N );
+    runAll<float, 2, 8, 31> ( M, K1, K2, N );
+    runAll<double,2, 8, 31> ( M, K1, K2, N );
 }

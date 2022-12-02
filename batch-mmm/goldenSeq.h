@@ -18,7 +18,7 @@
  *    the index of each array read is invariant to two parallel dimensions.
  **/
 template<class T>
-void goldenSeq(T* A, T* B, T* X, T* Y, const int M, const int K1, const int K2, const int N) {
+void goldenSeq(T* A, T* B, char* X, T* Y, const int M, const int K1, const int K2, const int N) {
     for(int i=0; i<M; i++) { // parallel
         for(int j1=0; j1<K1; j1++) { // parallel
             for(int j2=0; j2<K2; j2++) { // parallel
@@ -26,7 +26,7 @@ void goldenSeq(T* A, T* B, T* X, T* Y, const int M, const int K1, const int K2, 
                 for(int q=0; q<N; q++) { // reduction
                     float a = A[j1*N + q];
                     float b = B[q*K2 + j2];
-                    if( X[i*N + q] != SPEC_NAN ) {
+                    if( X[i*N + q] != 0 ) {
                         acc += a*b;
                     }
                 }

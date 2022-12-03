@@ -5,7 +5,7 @@
 using namespace std;
 
 #define GPU_RUNS    100
-#define ERR         0.02
+#define ERR         0.000005
 
 // naive kernel, i.e., the only tiling performed is on the grid;
 //   no shared or private memory is used.

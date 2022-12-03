@@ -7,6 +7,15 @@
 #include <sys/time.h>
 #include <time.h>
 
+#if 0
+typedef int           int32_t;
+typedef long long  int64_t;
+#endif
+
+typedef unsigned int uint32_t;
+typedef unsigned long long uint64_t;
+
+
 int gpuAssert(cudaError_t code) {
   if(code != cudaSuccess) {
     printf("GPU Error: %s\n", cudaGetErrorString(code));
@@ -44,12 +53,14 @@ void randomMask(char* data, int size, float frac) {
 
 // error for matmul: 0.02
 template<class T>
-bool validate(T* A, T* B, unsigned int sizeAB, const T err){
-    for(int i = 0; i < sizeAB; i++)
-      if (fabs(A[i] - B[i]) > err) {
-        printf("INVALID RESULT at flat index %d: %f vs %f\n", i, A[i], B[i]);
-        return false;
-      }
+bool validate(T* A, T* B, unsigned int sizeAB, const T ERR){
+    for(int i = 0; i < sizeAB; i++) {
+        T curr_err = fabs( (A[i] - B[i]) / max(A[i], B[i]) ); 
+        if (curr_err >= ERR) {
+            printf("INVALID RESULT at flat index %d: %f vs %f\n", i, A[i], B[i]);
+            return false;
+        }
+    }
     printf("VALID RESULT!\n");
     return true;
 }

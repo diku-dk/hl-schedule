@@ -10,7 +10,7 @@
 
 // nvcc main-cublas.cu -lcublas -lcurand
 
-#define GPU_RUNS 100
+#define GPU_RUNS 500
 
 int timeval_subtract(struct timeval *result, struct timeval *t2, struct timeval *t1)
 {

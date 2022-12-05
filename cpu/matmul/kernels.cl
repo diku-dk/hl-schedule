@@ -32,11 +32,11 @@ __kernel void matmul(
 
         for (size_t lcl_3 = 0; lcl_3 < 64; ++lcl_3) {
         #pragma unroll
+        for (size_t lcl_2 = 0; lcl_2 < 2; ++lcl_2) {
+        #pragma unroll
         for (size_t prv_3 = 0; prv_3 < 2; ++prv_3) {
         #pragma unroll
         for (size_t prv_2 = 0; prv_2 < 4; ++prv_2) {
-        #pragma unroll
-        for (size_t lcl_2 = 0; lcl_2 < 2; ++lcl_2) {
             c_prv[0][lcl_2 * 4 + prv_2] += a_lcl[0][lcl_3 * 2 + prv_3] * b_lcl[lcl_3 * 2 + prv_3][lcl_2 * 4 + prv_2];
         }}}}
     }

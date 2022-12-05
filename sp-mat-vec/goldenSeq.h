@@ -34,4 +34,40 @@ void goldenSeq  ( uint64_t*  rows
         res[i] = acc;
     }
 }
+
+/**
+ * An LMAD L = off + { (n_1 : s_1), ... (n_k, s_k) }
+ *   denotes the set of 1D points (memory locations):
+ *   { off + i_1*s_1 + ... + i_k*s_k |
+ *     0 <= i_1 < n_1, ..., 0 <= i_k < n_k }
+ */
+
+/**
+ * HL-Schedule of kernel "spmvInnParKer" (in kernels.cu.h)
+ *
+ * @Grid G(bid.x < num_rows):
+ *
+ * R(mat_inds) = ParU( G.x, mat_inds[ rows[bid.x] : rows[bid.x+1] ] )
+ *
+ * splitable R(mat_inds)[bid.x].length = q * b
+ *
+ * W(res) = res[:num_rows].mapPar(0 -> G.x)
+ * 
+ * @Block B(tid.x < b):
+ *
+ * res_sh = new shmem(b)
+ * R(mat_inds) = R(mat_inds).G[bid.x].split(0) // [q][b]
+ *
+ * @Thread T:
+ *
+ * R(mat_inds) = R(mat_inds).B[:,tid.x]
+ * res_reg = compute( new reg( 1 ) ) // [1]
+ * res_sh = reg2sh(res_reg);
+ * 
+ * @Block B(tid.x < b):
+ * W(res) = W(res).G[bid.x].pushRed(b)
+ * W(res) = sh2gb(res_sh)
+ *
+ */
+
 #endif

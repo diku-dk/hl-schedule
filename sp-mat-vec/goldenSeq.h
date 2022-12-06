@@ -65,8 +65,8 @@ void goldenSeq  ( uint64_t*  rows
  * res_sh = reg2sh(res_reg);
  * 
  * @Block B(tid.x < b):
- * W(res) = W(res).G[bid.x].pushRed(b)
- * W(res) = sh2gb(res_sh)
+ * W(res) = W(res).G[bid.x].pushRed(b) // [b] with stride 0
+ * W(res) = sh2gb(res_sh) // implicit reduction
  *
  */
 

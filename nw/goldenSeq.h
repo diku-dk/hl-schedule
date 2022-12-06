@@ -49,7 +49,7 @@ T* goldenSeq(T* Arow, T* Acol, T* R
  * @Grid G1(bid.x < i+1; fv: i=0..q-1):
  * assumes N = q*b + 1
  *
- * W(A) = A[1:,1:].split(1).split(0).antidiag(i).mapPar(0 -> G1.x)
+ * W(A) = A[1:,1:].split(1).split(0).reorder([0,2,1,3]).antidiag(i).mapPar(0 -> G1.x)
  *    // Produces LMAD: i*b+N+1 + { (i+1 : n*b−b), (b : n), (b : 1) }
  * // Don't know how to represent the horizontal and vertical columns:
  * // R_hor(A) = SeqU_{i=0..q-1} ( i*b + {(i+1 : n*b−b), (1 : n), (b+1 : 1)} )

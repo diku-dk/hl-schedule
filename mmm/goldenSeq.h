@@ -33,6 +33,10 @@ void goldenSeq(T* A, T* B, T* C, int heightA, int widthB, int widthA) {
  *   A : [M, Q]T
  *   B : [Q, N]T
  *   C : [M, N]T
+ * Observation: We might need to map all variables to a memory space,
+ *       and/or we might also need to declare the memory type in which
+ *                a variable is primarily computed (reg, shmem, glbmem). 
+ *
  *
  * splitable M = m * Tby, N = n * Tbx, Q = q * Ts
  *

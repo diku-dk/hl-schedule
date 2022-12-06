@@ -1,0 +1,33 @@
+// init:      N  P   Q  K  C R S
+0: (de-)comp( 1,112,112,64,3,7,7 )
+            ( IMG:DM[1,2,3,4],FLT:DM[1,2,3,4] ;
+              OUT:DM[1,2,3,4]                 )
+            ( GPU.z2,GPU.z1,GPU.y,GPU.x,GPU.z3,GPU.z4,GPU.z5 )
+
+// CUDA block parallelization
+1: (de-)comp( ^,16,16,32,^,^,^ )
+            ( IMG:SM[1,2,3,4],FLT:SM[1,2,3,4] ;
+              OUT:RM[1,2,3,4]                 )
+            ( BLK.z2,BLK.z1,BLK.y,BLK.x,BLK.z3,BLK.z4,BLK.z5 )
+
+// CUDA thread parallelization
+2: (de-)comp( ^,4,4,2,^,^,^ )
+            ( ^,^ ; ^ )
+            ( THR.z2,THR.z1,THR.y,THR.x,THR.z3,THR.z4,THR.z5 )
+
+// using CUDA shared & register memory
+3: (de-)comp( ^,^,^,^,^,^,^ )
+            ( IMG:SM[1,2,3,4],FLT:SM[1,2,3,4] ;
+              OUT:RM[1,2,3,4]                 )
+            ( ^,^,^,^,^,^,^ )
+
+// classical tiling
+4: (de-)comp( ^,1,^,1,1,^,^ )
+            ( ^,^ ; ^ )
+            ( FOR.4,FOR.5,FOR.6,FOR.7,FOR.1,FOR.2,FOR.3 )
+
+// classical tiling
+5: (de-)comp( ^,^,1,^,^,1,1 )
+            ( ^,^ ; ^ )
+            ( ^,^,^,^,^,^,^ )
+

@@ -23,51 +23,18 @@ void goldenSeq  ( uint64_t*  rows
                 , ElTp*      res
                 , uint32_t   num_rows
 ) {
+    //#hlsched@GPU spmvInnParSched(num_rows, rows, mat_inds, res)
     for(int i=0; i<num_rows; i++) {
-        ElTp acc = 0;
+        //ElTp acc = 0;
+        res[i] = 0;
         const int beg_row = rows[i];
         const int end_row = rows[i+1];
         for(int j=beg_row; j<end_row; j++) {
             const int col_ind = mat_inds[j];
-            acc += mat_vals[j] * vec[col_ind];
+            res[i] += mat_vals[j] * vec[col_ind];
         }
-        res[i] = acc;
+        //res[i] = acc;
     }
 }
-
-/**
- * An LMAD L = off + { (n_1 : s_1), ... (n_k, s_k) }
- *   denotes the set of 1D points (memory locations):
- *   { off + i_1*s_1 + ... + i_k*s_k |
- *     0 <= i_1 < n_1, ..., 0 <= i_k < n_k }
- */
-
-/**
- * HL-Schedule of kernel "spmvInnParKer" (in kernels.cu.h)
- *
- * @Grid G(bid.x < num_rows):
- *
- * R(mat_inds) = ParU( G.x, mat_inds[ rows[bid.x] : rows[bid.x+1] ] )
- *
- * splitable R(mat_inds)[bid.x].length = q * b
- *
- * W(res) = res[:num_rows].mapPar(0 -> G.x)
- * 
- * @Block B(tid.x < b):
- *
- * res_sh = new shmem(b)
- * R(mat_inds) = R(mat_inds).G[bid.x].split(0) // [q][b]
- *
- * @Thread T:
- *
- * R(mat_inds) = R(mat_inds).B[:,tid.x]
- * res_reg = compute( new reg( 1 ) ) // [1]
- * res_sh = reg2sh(res_reg);
- * 
- * @Block B(tid.x < b):
- * W(res) = W(res).G[bid.x].pushRed(b) // [b] with stride 0
- * W(res) = sh2gb(res_sh) // implicit reduction
- *
- */
 
 #endif

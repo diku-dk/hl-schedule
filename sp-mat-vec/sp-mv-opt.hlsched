@@ -1,0 +1,42 @@
+// this is supposed to be the high-level schedule for
+// the spmvInnParKer kernel (in kernels.cu.h)
+hlsched@GPU spmvInnParSched ( nr : int
+                            , rows : [>=nr+1]int@GlbM
+                            , inds : [>=rows[nr]]int@GlbM
+                            , res  : [>=nr]real@GlbM
+                            )
+{
+    Grid g(nr) {
+        W(res) = res[:nr].mapPar(0 -> x);
+        //R(mat_inds) = parUnion(b.idx in g, inds[ rows[b.idx] : rows[b.idx+1] ] );
+    }
+
+    tunable T assumes 16 <= T <= 256 and T = 16 * u;
+
+    // Blocks and threads have properties/fields `idx`, `idy`, `idz`.
+    Block b(T; result(res) : real@ShrM) {
+        len : int = rows[b.idx+1] - rows[b.idx];
+        splitable len = q * T;    
+        R(inds) = inds[ rows[blk.idx] : rows[blk.idx+1] ].split(0).mapPar(1->x, t); // [q][T]real
+        // or
+        // splitable R(mat_inds)[b.idx].length = q * T
+        // R(mat_inds) = g.R(mat_inds)[b.idx].split(0) // [q][T]
+
+        // this denotes a block reduction with the per-thread results
+        W(res) = result(res).pushRed(T,+).mapPar(0->x, t);
+
+        g.W(res)[b.idx] := result(res);
+    }
+
+    //The per-thread result of C is remapped to register memory 
+    Thread t( result(res) : real@RegM ) {
+        R(inds) = b.R(inds)[:,t.idx];
+
+        // sequential (intra-thread) reduction
+        W(res) = res.pushRed(b.q,+);
+
+        // updates block result
+        b.W(res)[t.idx] := result(res);
+    }
+}
+

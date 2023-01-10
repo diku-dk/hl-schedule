@@ -1,0 +1,54 @@
+/**
+ * An LMAD L = off + { (n_1 : s_1), ... (n_k, s_k) }
+ *   denotes the set of 1D points (memory locations):
+ *   { off + i_1*s_1 + ... + i_k*s_k |
+ *     0 <= i_1 < n_1, ..., 0 <= i_k < n_k }
+ */
+
+// this is supposed to be the high-level schedule for
+// the Rodinia Cuda implementation of NW (in kernels.cu.h)
+hlsched@GPU nwCudaSched( n : int
+                       , b : int
+                       , X : [n][n]real@GlbM
+) {
+    // this must hold, e.g., verified by a runtime test
+    assumes n = q*b + 1;
+    
+    // first kernel
+    seqUnion(i<q) {
+        Grid g(1, 1, i+1) {
+            W(X) =X[1:,1:].split(1).split(0).reorder([0,2,1,3]).antidiag(i).mapPar(0 -> x);
+            R_hor(X) = X[ LMAD(i*b + {(i+1 : n*b−b), (1 : n), (b+1 : 1)}) ].mapPar(0 -> x);
+            R_ver(X) = X[ LMAD(i*b + {(i+1 : n*b−b), (b+1 : n), (1 : 1)}) ].mapPar(0 -> x);
+            /**
+             *  We can use "antidiag" as a primitive to produce the following LMAD:
+             *          i*b+N+1 + { (i+1 : n*b−b), (b : n), (b : 1) }
+             *  denoting the blocks of the i-th anti-diagonal.
+             *  But I do not know yet how to hide the LMAD notation
+             *    for the read set (vertical rows and horizontal columns).
+             */
+        }
+
+        // the per-block result of X is remapped to shared memory
+        Block blk(1, 1, b; result(X) named Xsh : [b+1][b+1]real@ShrM) {
+            // collective copies
+            Xsh[0,:] := R_hor(X)[blk.idx]; //R_hor(X)[.]
+            Xsh[:,0] := R_ver(X)[blk.idx]; //R_ver(X)[.]
+
+            W(Xsh[1:,1:]) =
+                seqUnion(j<b)  { Xsh[1:,1:].antidiag(j).mapPar(0 -> x) }
+                Union
+                seqUnion(j<b-1){ Xsh[1:,1:].antidiag(b+j).mapPar(0 -> x) }
+                
+            // remapping the result from shared to global memory
+            // (by a collective copy)
+            g.W(X)[.] := Xsh[1:,1:];
+        }
+    }
+
+    // second kernel
+    seqUnion(i<q-1) {
+        ...
+    }
+}
+

@@ -1,7 +1,7 @@
 // init:      M  N    K
 0: (de-)comp( 1,1000,2048 )
-            ( A:DM[1,2],B:DM[1,2] ;
-              C:DM[1,2]           )
+            ( A:GM[1,2],B:GM[1,2] ;
+              C:GM[1,2]           )
             ( CPU.x,CPU.y,CPU.z )
 
 // OpenCL work-group parallelization
@@ -14,10 +14,16 @@
             ( ^,^ ; ^ )
             ( WI.y,WI.x,WI.z )
 
-// using OpenCL local & private memory
+// using OpenCL private memory
+3: (de-)comp( ^,^,^ )
+            ( ^,^       ;
+              C:PM[1,2] )
+            ( FOR.2,FOR.3,FOR.1 )
+
+// using OpenCL local memory
 3: (de-)comp( ^,^,128 )
             ( A:LM[1,2],B:LM[1,2] ;
-              C:RM[1,2]           )
+              ^                   )
             ( FOR.2,FOR.3,FOR.1 )
 
 // classical tiling

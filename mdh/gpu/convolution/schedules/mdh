@@ -15,10 +15,16 @@
             ( ^,^ ; ^ )
             ( THR.z2,THR.z1,THR.y,THR.x,THR.z3,THR.z4,THR.z5 )
 
-// using CUDA shared & register memory
+// using CUDA register memory
+3: (de-)comp( ^,^,^,^,^,^,^ )
+            ( ^,^             ;
+              OUT:RM[1,2,3,4] )
+            ( ^,^,^,^,^,^,^ )
+
+// using CUDA shared memory
 3: (de-)comp( ^,^,^,^,^,^,^ )
             ( IMG:SM[1,2,3,4],FLT:SM[1,2,3,4] ;
-              OUT:RM[1,2,3,4]                 )
+              ^                               )
             ( ^,^,^,^,^,^,^ )
 
 // classical tiling

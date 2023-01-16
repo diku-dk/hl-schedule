@@ -125,6 +125,10 @@ int main() {
     printf("result is correct\n");
     printf("runtime: %lu ns\n", min_runtime);
 
+    double flop = M * N * (K + K - 1);
+    double gflops = flop / min_runtime;
+    printf("GFLOPs: %.2f\n", gflops);
+
     clReleaseEvent(event);
     clReleaseMemObject(a_buff);
     clReleaseMemObject(b_buff);

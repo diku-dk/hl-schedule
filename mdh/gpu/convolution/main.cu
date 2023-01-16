@@ -128,6 +128,10 @@ int main() {
     printf("result is correct\n");
     printf("runtime: %lu ns\n", min_runtime);
 
+    double flop = N * P * Q * K * (C * R * S + C * R * S - 1);
+    double gflops = flop / min_runtime;
+    printf("GFLOPs: %.2f\n", gflops);
+
     CUDA_SAFE_CALL(cuMemFree(dimages));
     CUDA_SAFE_CALL(cuMemFree(dfilter));
     CUDA_SAFE_CALL(cuMemFree(dout));

@@ -118,6 +118,100 @@ __global__ void convolutionKer(ElTp* images, ElTp* filter, ElTp* out, int N, int
 }
 
 
+template <class ElTp, int Tpq, int Rpq, int Tk, int Rk, int Trs>
+__global__ void convolutionKer2(ElTp* images, ElTp* filter, ElTp* out, int N, int P, int Q, int K, int C, int R, int S) {
+  __shared__ ElTp images_sh[2*Tpq*Rpq + Trs - 2][2*Tpq*Rpq + Trs - 2 + 1];
+  __shared__ ElTp filter_sh[Trs][Trs][Tk*Rk];
+  ElTp acc[Rpq][Rpq][Rk];
+
+  // i am ignoring n
+  uint32_t gid = threadIdx.z * (Tpq * Tk) + threadIdx.y * Tk + threadIdx.x;
+
+  //Assuming N = 1 and n = 0
+  uint32_t pp = blockIdx.z * (Tpq * Rpq);
+  uint32_t qq = blockIdx.y * (Tpq * Rpq);
+  uint32_t kk = blockIdx.x * (Tk * Rk);
+  
+  // init regs
+  #pragma unroll
+  for(int p=0; p<Rpq; p++)
+  #pragma unroll
+  for(int q=0; q<Rpq; q++)
+  #pragma unroll
+  for(int k=0; k<Rk; k++)
+    acc[p][q][k] = 0.0;
+
+  for(int c=0; c<C; c++) {
+    for(int rr=0; rr<R; rr+=Trs) {
+      for(int ss=0; ss<S; ss+=Trs) {
+
+        // copy the slice of images from global to shared mem
+        for(    uint32_t ind = gid;
+                ind < (2*Tpq*Rpq + Trs - 2)*(2*Tpq*Rpq + Trs - 2); 
+                ind += Tpq*Tpq*Tk
+        ) {
+            ElTp el = 0;
+            uint32_t ind_y = ind / (2*Tpq*Rpq + Trs - 2);
+            uint32_t ind_x = ind - ind_y * (2*Tpq*Rpq + Trs - 2);
+            if( (pp + rr + ind_y < 2*P+R-1) && (qq + ss + ind_x < 2*Q+S-1) ) {
+              el = images[ c*(2*P+R-1)*(2*Q+S-1) + (2*pp+rr+ind_y)*(2*Q+S-1) + (2*qq+ss+ind_x) ];
+            }
+            images_sh[ind_y][ind_x] = el;
+        }
+        
+        // copy the slice of filter from global to shared mem
+        for( uint32_t ind = gid; ind < Tk*Rk*Trs*Trs; ind += Tpq*Tpq*Tk ) {
+            ElTp el = 0;
+
+            uint32_t ind_sr = ind / (Tk*Rk);
+            uint32_t ind_k = ind - ind_sr * (Tk*Rk);
+            uint32_t ind_r = ind_sr / Trs;
+            uint32_t ind_s = ind_sr - ind_r*Trs;
+
+            if(kk+ind_k < K && ss + ind_s<S && rr+ind_r < R) {
+              el = filter[c*(R*S*K) + (rr+ind_r)*(S*K) + (ss + ind_s)*K + kk + ind_k];
+            }
+            filter_sh[ind_r][ind_s][ind_k] = el;
+        }
+        __syncthreads();
+            
+        // finally the computation:
+        #pragma unroll
+        for(int r = 0; r < Trs; r++)
+        #pragma unroll
+        for(uint32_t s = 0; s < Trs; s++)
+        #pragma unroll
+        for(uint32_t p = 0; p < Rpq; p++)
+        #pragma unroll
+        for(uint32_t q = 0; q < Rpq; q++)
+        #pragma unroll
+        for(uint32_t k = 0; k < Rk;  k++) {
+            acc[p][q][k] += images_sh[2*(threadIdx.z*Rpq + p)+r][2*(threadIdx.y*Rpq + q)+s] * 
+                                  // [2*Tpq*Rpq + Trs - 2][2*Tpq*Rpq + Trs - 2];
+                            filter_sh[r][s][threadIdx.x*Rk+k];
+        }
+        __syncthreads();
+      }
+    }
+  }
+
+  // write to global memory
+  #pragma unroll
+  for(uint32_t p = 0; p < Rpq; p++)
+  #pragma unroll
+  for(uint32_t q = 0; q < Rpq; q++)
+  #pragma unroll
+  for(uint32_t k = 0; k < Rk;  k++) {
+    uint32_t ind_p = pp + p + threadIdx.z*Rpq;
+    uint32_t ind_q = qq + q + threadIdx.y*Rpq;
+    uint32_t ind_k = kk + k + threadIdx.x*Rk;
+    if( (ind_p < P) && (ind_q < Q) && (ind_k < K) ) {
+        out[ind_p*Q*K + ind_q*K + ind_k] = acc[p][q][k];
+    }
+  }
+}
+
+
 int main() {
     const int N = 1;
     const int P = 112;
@@ -167,7 +261,7 @@ int main() {
     
     dim3 block(Tk, Tpq, Tpq);
     dim3 grid(dimx, dimy, dimz);
-    convolutionKer<float, Tpq, Rpq, Tk, Rk, 7><<< grid, block >>>(d_images, d_filter, d_out, N, P, Q, K, C, R, S);
+    convolutionKer2<float, Tpq, Rpq, Tk, Rk, 7><<< grid, block >>>(d_images, d_filter, d_out, N, P, Q, K, C, R, S);
     cudaDeviceSynchronize();
 
     // time measurement
@@ -178,7 +272,7 @@ int main() {
         gettimeofday(&t_start, NULL); 
       
         for(int i=0; i<GPU_RUNS; i++) {
-            convolutionKer<float, Tpq, Rpq, Tk, Rk, 7><<< grid, block >>>(d_images, d_filter, d_out, N, P, Q, K, C, R, S);
+            convolutionKer2<float, Tpq, Rpq, Tk, Rk, 7><<< grid, block >>>(d_images, d_filter, d_out, N, P, Q, K, C, R, S);
         }
         cudaDeviceSynchronize();
 

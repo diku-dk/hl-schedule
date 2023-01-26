@@ -9,7 +9,7 @@
  * Input arrays with dimensions:
  *    A : [K1][N]T
  *    B : [N][K2]T
- *    X :  [M][N]T  (the mask)
+ *    X : [M][N]char  (the mask)
  * Result:
  *    Y : [M][K1][K2]T
  * T is some numeric type (single/double precision floats).

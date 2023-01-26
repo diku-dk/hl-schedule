@@ -25,19 +25,10 @@ void goldenSeq(float* images, float* filter, float* out,
 
 
 template <class ElTp, int Tpq, int Rpq, int Tk, int Rk, int Trs>
-__global__ void convolutionKer(ElTp* images, ElTp* filter, ElTp* out) {
+__global__ void convolutionKer(ElTp* images, ElTp* filter, ElTp* out, int N, int P, int Q, int K, int C, int R, int S) {
   __shared__ ElTp images_sh[2*Tpq*Rpq + Trs - 2][2*Tpq*Rpq + Trs - 2 + 1];
   __shared__ ElTp filter_sh[Trs][Tk*Rk];
   ElTp acc[Rpq][Rpq][Rk];
-
-  const int N = 1;
-  const int P = 112;
-  const int Q = 112;
-  const int K = 64;
-  const int C = 3;
-  const int R = 7;
-  const int S = 7;
-
 
   // i am ignoring n
   uint32_t gid = threadIdx.z * (Tpq * Tk) + threadIdx.y * Tk + threadIdx.x;
@@ -176,7 +167,7 @@ int main() {
     
     dim3 block(Tk, Tpq, Tpq);
     dim3 grid(dimx, dimy, dimz);
-    convolutionKer<float, Tpq, Rpq, Tk, Rk, 7><<< grid, block >>>(d_images, d_filter, d_out);
+    convolutionKer<float, Tpq, Rpq, Tk, Rk, 7><<< grid, block >>>(d_images, d_filter, d_out, N, P, Q, K, C, R, S);
     cudaDeviceSynchronize();
 
     // time measurement
@@ -187,7 +178,7 @@ int main() {
         gettimeofday(&t_start, NULL); 
       
         for(int i=0; i<GPU_RUNS; i++) {
-            convolutionKer<float, Tpq, Rpq, Tk, Rk, 7><<< grid, block >>>(d_images, d_filter, d_out);
+            convolutionKer<float, Tpq, Rpq, Tk, Rk, 7><<< grid, block >>>(d_images, d_filter, d_out, N, P, Q, K, C, R, S);
         }
         cudaDeviceSynchronize();
 

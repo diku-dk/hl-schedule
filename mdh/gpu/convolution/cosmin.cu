@@ -27,7 +27,7 @@ void goldenSeq(float* images, float* filter, float* out,
 template <class ElTp, int Tpq, int Rpq, int Tk, int Rk, int Trs>
 __global__ void convolutionKer(ElTp* images, ElTp* filter, ElTp* out, int N, int P, int Q, int K, int C, int R, int S) {
   __shared__ ElTp images_sh[2*Tpq*Rpq + Trs - 2][2*Tpq*Rpq + Trs - 2 + 1];
-  __shared__ ElTp filter_sh[Trs][Tk*Rk];
+  __shared__ ElTp filter_sh[Tk*Rk][Trs];
   ElTp acc[Rpq][Rpq][Rk];
 
   // i am ignoring n
@@ -70,14 +70,17 @@ __global__ void convolutionKer(ElTp* images, ElTp* filter, ElTp* out, int N, int
             // copy the slice of filter from global to shared mem
             for( uint32_t ind = gid; ind < Tk*Rk*Trs; ind += Tpq*Tpq*Tk ) {
                 ElTp el = 0;
-
+#if 0
                 uint32_t ind_s = ind / (Tk*Rk);
                 uint32_t ind_k = ind - ind_s * (Tk*Rk);
-
+#endif
+                uint32_t ind_k = ind / Trs;
+                uint32_t ind_s = ind - ind_k * Trs;
+                
                 if(kk+ind_k < K && ss + ind_s<S && rr+r < R) {
                   el = filter[c*(R*S*K) + (rr+r)*(S*K) + (ss + ind_s)*K + kk + ind_k];
                 }
-                filter_sh[ind_s][ind_k] = el;
+                filter_sh[ind_k][ind_s] = el;
             }
             __syncthreads();
 
@@ -92,7 +95,7 @@ __global__ void convolutionKer(ElTp* images, ElTp* filter, ElTp* out, int N, int
             for(uint32_t k = 0; k < Rk;  k++) {
                 acc[p][q][k] += images_sh[2*(threadIdx.z*Rpq + p)+r][2*(threadIdx.y*Rpq + q)+s] * 
                                       // [2*Tpq*Rpq + Trs - 2][2*Tpq*Rpq + Trs - 2];
-                                filter_sh[s][threadIdx.x*Rk+k];
+                                filter_sh[threadIdx.x*Rk+k][s];
             }
             __syncthreads();
         }

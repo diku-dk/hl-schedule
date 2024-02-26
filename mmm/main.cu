@@ -4,7 +4,7 @@
 
 using namespace std;
 
-#define GPU_RUNS    100
+#define GPU_RUNS    50
 #define ERR         0.000005
 
 // naive kernel, i.e., the only tiling performed is on the grid;
@@ -260,11 +260,11 @@ void runAll ( int height_A, int width_A, int width_B ) {
     runNaive<T, TL>( height_A, width_A, width_B, d_A, d_B, d_C, ref_C );
 
     // with TL = 24 => error. why?
-    runAsymetricBlkRegTile<T, TL>( height_A, width_A, width_B, d_A, d_B, d_C, ref_C );
+    //runAsymetricBlkRegTile<T, TL>( height_A, width_A, width_B, d_A, d_B, d_C, ref_C );
 
     runSymetricBlkRegTileInnSeq<T, TL, REG, TL, REG, TL>( height_A, width_A, width_B, d_A, d_B, d_C, ref_C );
 
-    runSymetricBlkRegTileAllPar<T, TL, REG, TL, REG, TL, TL>( height_A, width_A, width_B, d_A, d_B, d_C, ref_C );
+    //runSymetricBlkRegTileAllPar<T, TL, REG, TL, REG, TL, TL>( height_A, width_A, width_B, d_A, d_B, d_C, ref_C );
 
     free(h_A);
     free(h_B);
@@ -287,6 +287,6 @@ int main (int argc, char * argv[]) {
     const int WIDTH_A  = atoi(argv[2]);
     const int WIDTH_B  = atoi(argv[3]);
 
-    runAll<float, 16, 4> ( HEIGHT_A, WIDTH_A, WIDTH_B );
-    runAll<double,16, 4> ( HEIGHT_A, WIDTH_A, WIDTH_B );
+    runAll<float, 32, 4> ( HEIGHT_A, WIDTH_A, WIDTH_B );
+    //runAll<double,16, 4> ( HEIGHT_A, WIDTH_A, WIDTH_B );
 }

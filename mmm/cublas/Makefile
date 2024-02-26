@@ -1,4 +1,5 @@
-CXX = nvcc -O3 -arch=sm_60
+CXX = nvcc -O3 
+#-arch=sm_60
 LIB = -lcublas -lcurand
 #-arch=sm_60
 

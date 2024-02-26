@@ -1,4 +1,4 @@
-CXX        = nvcc -O3 -arch=sm_60
+CXX        = nvcc -O3 -arch=sm_80
 
 #-arch=sm_60
 

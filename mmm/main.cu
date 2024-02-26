@@ -120,8 +120,14 @@ void runSymetricBlkRegTileInnSeq(
     dim3 block(Tx, Ty, 1);
     dim3 grid (dimx, dimy, 1);
 
+    const size_t shmem_size = (Ty*Ry*Tk + Tk*Tx*Rx)*sizeof(T);
+
+    {
+        cudaFuncSetAttribute(mmmSymBlkRegInnSeqKer<T,Ty,Ry,Tx,Rx,Tk>, cudaFuncAttributeMaxDynamicSharedMemorySize, 65504);  // 65536
+    }
+
     { // one dry run
-        mmmSymBlkRegInnSeqKer<T,Ty,Ry,Tx,Rx,Tk> <<< grid, block >>>(d_A, d_B, d_C, HEIGHT_A, WIDTH_B, WIDTH_A); 
+        mmmSymBlkRegInnSeqKer<T,Ty,Ry,Tx,Rx,Tk> <<< grid, block, shmem_size >>>(d_A, d_B, d_C, HEIGHT_A, WIDTH_B, WIDTH_A); 
         cudaDeviceSynchronize();
         gpuAssert( cudaPeekAtLastError() );
     }
@@ -133,7 +139,7 @@ void runSymetricBlkRegTileInnSeq(
     gettimeofday(&t_start, NULL); 
       
     for(int i=0; i<GPU_RUNS; i++) {
-        mmmSymBlkRegInnSeqKer<T,Ty,Ry,Tx,Rx,Tk> <<< grid, block >>>(d_A, d_B, d_C, HEIGHT_A, WIDTH_B, WIDTH_A);
+        mmmSymBlkRegInnSeqKer<T,Ty,Ry,Tx,Rx,Tk> <<< grid, block, shmem_size >>>(d_A, d_B, d_C, HEIGHT_A, WIDTH_B, WIDTH_A);
     }
     cudaDeviceSynchronize();
     gpuAssert( cudaPeekAtLastError() );

@@ -69,8 +69,15 @@ __global__ void mmmAsymBlkRegKer(ElTp* A, ElTp* B, ElTp* C, int heightA, int wid
 
 template <class ElTp, int Ty, int Ry, int Tx, int Rx, int Tk>
 __global__ void mmmSymBlkRegInnSeqKer(ElTp* A, ElTp* B, ElTp* C, int heightA, int widthB, int widthA) {
+#if 0
   __shared__ ElTp Aloc[Ty*Ry][Tk];
   __shared__ ElTp Bloc[Tk][Tx*Rx]; 
+#else
+  extern __shared__ uint64_t sh_mem_char[];
+  ElTp* Aloc = (ElTp*) sh_mem_char;  // [Ty*Ry][Tk]
+  ElTp* Bloc = (ElTp*) ( ((ElTp*)sh_mem_char) + Ty*Ry*Tk ); // [Tk][Tx*Rx]
+#endif
+
   ElTp css[Ry][Rx];
 
   unsigned int iii = blockIdx.y * Ty * Ry;
@@ -95,7 +102,8 @@ __global__ void mmmSymBlkRegInnSeqKer(ElTp* A, ElTp* B, ElTp* C, int heightA, in
               ElTp v = 0.0;
               if ( (iii+i < heightA) && (kk+k < widthA) )
                   v = A[(iii+i)*widthA + (kk+k)];
-              Aloc[i][k] = v;
+              //Aloc[i][k] = v;
+              Aloc[i*Tk + k] = v;
           }
       }
 
@@ -110,7 +118,8 @@ __global__ void mmmSymBlkRegInnSeqKer(ElTp* A, ElTp* B, ElTp* C, int heightA, in
               ElTp v = 0.0;
               if ( (jjj+j < widthB) && (kk+k < widthA) )
                   v = B[(kk+k)*widthB + (jjj + j)];
-              Bloc[k][j] = v;
+              //Bloc[k][j] = v;
+              Bloc[k*(Tx*Rx) + j] = v;
           }
       }
       __syncthreads();
@@ -125,8 +134,10 @@ __global__ void mmmSymBlkRegInnSeqKer(ElTp* A, ElTp* B, ElTp* C, int heightA, in
                 // unfortunately we need a safety condition here
                 // or do we? because if i or j is out of range then
                 // cs[i][j] is invalid anyways -- so everything looks safe!
-                //css[i][j] += as[i] * bs[j];
-                css[i][j] += Aloc[threadIdx.y*Ry+i][k] * Bloc[k][threadIdx.x*Rx+j];
+                ////css[i][j] += as[i] * bs[j];
+                css[i][j] += 
+                  Aloc[ (threadIdx.y*Ry+i)*Tk + k] * //Aloc[threadIdx.y*Ry+i][k] * 
+                  Bloc[k*(Tx*Rx) + (threadIdx.x*Rx+j)]; //Bloc[k][threadIdx.x*Rx+j] ;
             }
           }
       }
@@ -150,13 +161,14 @@ __global__ void mmmSymBlkRegInnSeqKer(ElTp* A, ElTp* B, ElTp* C, int heightA, in
   #pragma unroll
   for(int i=0; i<Ry; i++) {
     for(int j=0; j<Rx; j++) {
-      Bloc[threadIdx.y][threadIdx.x*Rx+j] = css[i][j];
+      //Bloc[threadIdx.y][threadIdx.x*Rx+j] = css[i][j];
+      Bloc[threadIdx.y*(Tx*Rx) + threadIdx.x*Rx+j] = css[i][j];
     }
     __syncthreads();
     for(int j=0; j<Rx; j++) {
       const unsigned int indxx = j*Tx + threadIdx.x;
       if( (indy+i < heightA) && (indxx+jjj < widthB) )
-        C[(indy+i)*widthB + (indxx + jjj)] = Bloc[threadIdx.y][indxx];
+        C[(indy+i)*widthB + (indxx + jjj)] = Bloc[threadIdx.y*(Tx*Rx) + indxx]; //Bloc[threadIdx.y][indxx];
     }
     __syncthreads();
   }

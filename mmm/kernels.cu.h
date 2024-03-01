@@ -68,13 +68,130 @@ __global__ void mmmAsymBlkRegKer(ElTp* A, ElTp* B, ElTp* C, int heightA, int wid
 /************************************************/
 
 template <class ElTp, int Ty, int Ry, int Tx, int Rx, int Tk>
+__global__ void mmmSymBlkRegInnSeqKerLmad(ElTp* A, ElTp* B, ElTp* C, int heightA, int widthB, int widthA) {
+  extern __shared__ uint64_t sh_mem_char[];
+  ElTp* Aloc = (ElTp*) sh_mem_char;                         // [Ty*Ry][Tk]
+  ElTp* Bloc = (ElTp*) ( ((ElTp*)sh_mem_char) + Ty*Ry*Tk ); // [Tk][Tx*Rx]
+
+  ElTp css[Ry][Rx];
+
+  unsigned int iii = blockIdx.y * Ty * Ry;
+  unsigned int jjj = blockIdx.x * Tx * Rx;
+
+  #pragma unroll
+  for(int i=0; i<Ry; i++)
+    #pragma unroll
+    for(int j=0; j<Rx; j++)
+      css[i][j] = 0.0;
+
+  for(int kk = 0; kk < widthA; kk += Tk) {
+
+      // copy the slice of A: Ashreg = A[iii : iii + Ty*Ry , kk : kk+Tk]
+      //   such that the accesses to A and Aloc are both coalesced!
+      // copy from Aglb: {iii*widthA+kk + [(Ty*Ry, widthA), (Tk,1)]}
+      //      in   Aloc: {0   + [(Ty*Ry,     Tk), (Tk,1)]}
+#if 1
+      uint32_t tid = threadIdx.y * Tx + threadIdx.x;
+      for(int tt = 0; tt < (Ty*Ry*Tk + Tx*Ty - 1) / (Tx*Ty); tt++) {
+        uint32_t t = tt * Tx*Ty + tid;
+        uint32_t i = t / Tk;
+        uint32_t k = t % Tk;
+        
+        uint32_t ind_glb = iii*widthA + kk + i*widthA + k;
+        
+        ElTp v = 0.0;
+        if(i < heightA - iii && k < widthA - kk && t < Ty*Ry*Tk)
+            v = A[ind_glb];
+            
+        uint32_t ind_loc = i*Tk + k;
+        Aloc[ind_loc] = v;
+      }
+     
+      // copy the slice of B: Bshreg = B[kk : kk+Tk , jjj : jjj + Tx*Rx]
+      //   such that the accesses to B and Bloc are both coalesced!
+      // copy from Bglb: {jjj+kk*widthB + [(Tk, widthB), (Tx*Rx,1)]}
+      //      in   Bloc: {0   + [(Tk, Tx*Rx), (Tx*Rx,1)]}
+      for(int tt = 0; tt < (Tx*Rx*Tk + Tx*Ty - 1) / (Tx*Ty); tt++) {
+        uint32_t t = tt * Tx*Ty + tid;
+        uint32_t k = t / (Tx*Rx);
+        uint32_t j = t % (Tx*Rx);
+        
+        uint32_t ind_glb = (kk+k)*widthB + jjj + j;
+        
+        ElTp v = 0.0;
+        if(j < widthB - jjj && k < widthA - kk && t < Tx*Rx*Tk)
+            v = B[ind_glb];
+            
+        uint32_t ind_loc = k*(Tx*Rx) + j;
+        Bloc[ind_loc] = v;
+      }
+#else
+      for(int io = 0; io < Ry; io++) {
+          for(int ko = 0; ko < (Tk + Tx - 1)/Tx; ko++) {
+              int i = io*Ty + threadIdx.y;
+              int k = ko*Tx + threadIdx.x;
+              ElTp v = 0.0;
+              if ( (i < heightA - iii) && (k < widthA - kk) )
+                  v = A[(iii+i)*widthA + (kk+k)];
+              Aloc[i*Tk + k] = v;
+          }
+      }
+
+      for(int ko = 0; ko < (Tk+Ty-1)/Ty; ko++) {
+          for(int jo = 0; jo < Rx; jo++) {
+              int k = ko*Ty + threadIdx.y;
+              int j = jo*Tx + threadIdx.x;
+              ElTp v = 0.0;
+              if ( (jjj+j < widthB) && (kk+k < widthA) )
+                  v = B[(kk+k)*widthB + (jjj + j)];
+              Bloc[k*(Tx*Rx) + j] = v;
+          }
+      }
+#endif
+      __syncthreads();
+
+      for(int k = 0; k < Tk; k++) {
+          // copy from local to register memory for A
+
+          #pragma unroll
+          for(int i=0; i<Ry; i++) {
+            #pragma unroll
+            for(int j=0; j<Rx; j++) {
+                css[i][j] += 
+                  Aloc[ (threadIdx.y*Ry+i)*Tk + k] * //Aloc[threadIdx.y*Ry+i][k] * 
+                  Bloc[k*(Tx*Rx) + (threadIdx.x*Rx+j)]; //Bloc[k][threadIdx.x*Rx+j] ;
+            }
+          }
+      }
+      __syncthreads();
+  }
+
+  const unsigned int indy = iii + threadIdx.y * Ry;
+
+  #pragma unroll
+  for(int i=0; i<Ry; i++) {
+    for(int j=0; j<Rx; j++) {
+      //Bloc[threadIdx.y][threadIdx.x*Rx+j] = css[i][j];
+      Bloc[threadIdx.y*(Tx*Rx) + threadIdx.x*Rx+j] = css[i][j];
+    }
+    __syncthreads();
+    for(int j=0; j<Rx; j++) {
+      const unsigned int indxx = j*Tx + threadIdx.x;
+      if( (indy+i < heightA) && (indxx+jjj < widthB) )
+        C[(indy+i)*widthB + (indxx + jjj)] = Bloc[threadIdx.y*(Tx*Rx) + indxx]; //Bloc[threadIdx.y][indxx];
+    }
+    __syncthreads();
+  }
+}
+
+template <class ElTp, int Ty, int Ry, int Tx, int Rx, int Tk>
 __global__ void mmmSymBlkRegInnSeqKer(ElTp* A, ElTp* B, ElTp* C, int heightA, int widthB, int widthA) {
 #if 0
   __shared__ ElTp Aloc[Ty*Ry][Tk];
   __shared__ ElTp Bloc[Tk][Tx*Rx]; 
 #else
   extern __shared__ uint64_t sh_mem_char[];
-  ElTp* Aloc = (ElTp*) sh_mem_char;  // [Ty*Ry][Tk]
+  ElTp* Aloc = (ElTp*) sh_mem_char;                         // [Ty*Ry][Tk]
   ElTp* Bloc = (ElTp*) ( ((ElTp*)sh_mem_char) + Ty*Ry*Tk ); // [Tk][Tx*Rx]
 #endif
 
@@ -93,14 +210,12 @@ __global__ void mmmSymBlkRegInnSeqKer(ElTp* A, ElTp* B, ElTp* C, int heightA, in
 
       // copy the slice of A: Ashreg = A[iii : iii + Ty*Ry , kk : kk+Tk]
       //   such that the accesses to A and Aloc are both coalesced!
-      //for(int i = threadIdx.y; i < Ty*Ry; i+=Ty) {
-      //    for(int k = threadIdx.x; k < Tk; k+=Tx) {
       for(int io = 0; io < Ry; io++) {
           for(int ko = 0; ko < (Tk + Tx - 1)/Tx; ko++) {
               int i = io*Ty + threadIdx.y;
               int k = ko*Tx + threadIdx.x;
               ElTp v = 0.0;
-              if ( (iii+i < heightA) && (kk+k < widthA) )
+              if ( (i < heightA - iii) && (k < widthA - kk) )
                   v = A[(iii+i)*widthA + (kk+k)];
               //Aloc[i][k] = v;
               Aloc[i*Tk + k] = v;
@@ -109,14 +224,12 @@ __global__ void mmmSymBlkRegInnSeqKer(ElTp* A, ElTp* B, ElTp* C, int heightA, in
 
       // copy the slice of B: Bshreg = B[kk : kk+Tk , jjj : jjj + Tx*Rx]
       //   such that the accesses to B and Bloc are both coalesced!
-      //for(int k = threadIdx.y; k < Tk; k+=Ty) {
-      //    for(int j = threadIdx.x; j < Tx*Rx; j+=Tx) {
       for(int ko = 0; ko < (Tk+Ty-1)/Ty; ko++) {
           for(int jo = 0; jo < Rx; jo++) {
               int k = ko*Ty + threadIdx.y;
               int j = jo*Tx + threadIdx.x;
               ElTp v = 0.0;
-              if ( (jjj+j < widthB) && (kk+k < widthA) )
+              if ( (j < widthB - jjj) && (k < widthA - kk) )
                   v = B[(kk+k)*widthB + (jjj + j)];
               //Bloc[k][j] = v;
               Bloc[k*(Tx*Rx) + j] = v;
@@ -131,12 +244,8 @@ __global__ void mmmSymBlkRegInnSeqKer(ElTp* A, ElTp* B, ElTp* C, int heightA, in
           for(int i=0; i<Ry; i++) {
             #pragma unroll
             for(int j=0; j<Rx; j++) {
-                // unfortunately we need a safety condition here
-                // or do we? because if i or j is out of range then
-                // cs[i][j] is invalid anyways -- so everything looks safe!
-                ////css[i][j] += as[i] * bs[j];
                 css[i][j] += 
-                  Aloc[ (threadIdx.y*Ry+i)*Tk + k] * //Aloc[threadIdx.y*Ry+i][k] * 
+                  Aloc[ (threadIdx.y*Ry+i)*Tk + k] *    //Aloc[threadIdx.y*Ry+i][k] * 
                   Bloc[k*(Tx*Rx) + (threadIdx.x*Rx+j)]; //Bloc[k][threadIdx.x*Rx+j] ;
             }
           }

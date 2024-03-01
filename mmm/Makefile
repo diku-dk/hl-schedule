@@ -1,5 +1,5 @@
-CXX        = nvcc -O3 -arch=sm_60
-
+CXX        = nvcc -O3 -arch=sm_70
+# --extra-device-vectorization 
 #-arch=sm_60
 
 SRC = main.cu

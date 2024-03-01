@@ -4,7 +4,7 @@
 
 using namespace std;
 
-#define GPU_RUNS    50
+#define GPU_RUNS    25
 #define ERR         0.000005
 
 // naive kernel, i.e., the only tiling performed is on the grid;
@@ -124,10 +124,12 @@ void runSymetricBlkRegTileInnSeq(
 
     {
         cudaFuncSetAttribute(mmmSymBlkRegInnSeqKer<T,Ty,Ry,Tx,Rx,Tk>, cudaFuncAttributeMaxDynamicSharedMemorySize, 65504);  // 65536
+        cudaFuncSetAttribute(mmmSymBlkRegInnSeqKerLmad<T,Ty,Ry,Tx,Rx,Tk>, cudaFuncAttributeMaxDynamicSharedMemorySize, 65504);  // 65536
     }
 
     { // one dry run
-        mmmSymBlkRegInnSeqKer<T,Ty,Ry,Tx,Rx,Tk> <<< grid, block, shmem_size >>>(d_A, d_B, d_C, HEIGHT_A, WIDTH_B, WIDTH_A); 
+        //mmmSymBlkRegInnSeqKer<T,Ty,Ry,Tx,Rx,Tk> <<< grid, block, shmem_size >>>(d_A, d_B, d_C, HEIGHT_A, WIDTH_B, WIDTH_A);
+        mmmSymBlkRegInnSeqKerLmad<T,Ty,Ry,Tx,Rx,Tk> <<< grid, block, shmem_size >>>(d_A, d_B, d_C, HEIGHT_A, WIDTH_B, WIDTH_A);
         cudaDeviceSynchronize();
         gpuAssert( cudaPeekAtLastError() );
     }
@@ -139,7 +141,8 @@ void runSymetricBlkRegTileInnSeq(
     gettimeofday(&t_start, NULL); 
       
     for(int i=0; i<GPU_RUNS; i++) {
-        mmmSymBlkRegInnSeqKer<T,Ty,Ry,Tx,Rx,Tk> <<< grid, block, shmem_size >>>(d_A, d_B, d_C, HEIGHT_A, WIDTH_B, WIDTH_A);
+        //mmmSymBlkRegInnSeqKer<T,Ty,Ry,Tx,Rx,Tk> <<< grid, block, shmem_size >>>(d_A, d_B, d_C, HEIGHT_A, WIDTH_B, WIDTH_A);
+        mmmSymBlkRegInnSeqKerLmad<T,Ty,Ry,Tx,Rx,Tk> <<< grid, block, shmem_size >>>(d_A, d_B, d_C, HEIGHT_A, WIDTH_B, WIDTH_A);
     }
     cudaDeviceSynchronize();
     gpuAssert( cudaPeekAtLastError() );
@@ -293,6 +296,8 @@ int main (int argc, char * argv[]) {
     const int WIDTH_A  = atoi(argv[2]);
     const int WIDTH_B  = atoi(argv[3]);
 
-    runAll<float, 32, 4> ( HEIGHT_A, WIDTH_A, WIDTH_B );
+    cudaSetDevice(1);
+
+    runAll<float, 16, 4> ( HEIGHT_A, WIDTH_A, WIDTH_B );
     //runAll<double,16, 4> ( HEIGHT_A, WIDTH_A, WIDTH_B );
 }

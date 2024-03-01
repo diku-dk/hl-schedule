@@ -12,6 +12,8 @@
 
 #define GPU_RUNS 25
 
+#define DEBUG 1
+
 int timeval_subtract(struct timeval *result, struct timeval *t2, struct timeval *t1)
 {
     unsigned int resolution=1000000;
@@ -66,12 +68,6 @@ void gpu_blas_mmul(cublasHandle_t &handle, const float *A, const float *B, float
      cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
 }
 
-
-template<class T> 
-void callCublas() {
-    return;
-}
-
 template<class T> 
 void gpu_blas_mmul(cublasHandle_t &handle, const T *A, const T *B, T *C, const int m, const int k, const int n) {
     return;
@@ -86,7 +82,11 @@ void gpu_blas_mmul<float>(cublasHandle_t &handle, const float *A, const float *B
      const float *beta = &bet;
 
      // Do the actual multiplication
-     cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
+     cublasStatus_t status = cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
+     if(DEBUG && status!=CUBLAS_STATUS_SUCCESS) {
+        printf("Error: %d", status);
+        exit(1);
+     }
 }
 
 template<>
@@ -98,7 +98,11 @@ void gpu_blas_mmul<double>(cublasHandle_t &handle, const double *A, const double
      const double *beta = &bet;
 
      // Do the actual multiplication
-     cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
+     cublasStatus_t status = cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
+     if(DEBUG && status!=CUBLAS_STATUS_SUCCESS) {
+        printf("Error: %d", status);
+        exit(1);
+     }
 }
  
 // Multiply the arrays A and B on GPU and save the result in C
